@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GILIH — Portal Web</title>
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>GILIH</h2>
+        <span>Portal administrativo</span>
+      </div>
+      <nav class="sidebar-nav" id="sidebarNav"></nav>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <strong id="userName">—</strong>
+          <span id="userEmail">—</span>
+          <div class="user-role" id="userRole">—</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btnLogout" style="width:100%">Cerrar sesión</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <h1 id="pageTitle">Inicio</h1>
+          <span id="pageSubtitle" style="color:var(--muted);font-size:0.875rem"></span>
+        </div>
+        <div class="topbar-actions">
+          <div style="position:relative">
+            <button class="notif-btn" id="btnNotificaciones" title="Notificaciones">🔔</button>
+            <span class="notif-badge hidden" id="notifCount">0</span>
+            <div class="notif-panel hidden" id="notifPanel"></div>
+          </div>
+        </div>
+      </header>
+      <div class="content-area" id="contentArea"></div>
+    </main>
+  </div>
+
+  <!-- Modal genérico -->
+  <div class="modal-overlay hidden" id="modalOverlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalTitle">Formulario</h3>
+        <button class="modal-close" id="modalClose">&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-footer" id="modalFooter"></div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
