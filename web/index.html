@@ -84,6 +84,7 @@
     function mostrarAlerta(mensaje, tipo) {
       alertBox.className = `alert alert-${tipo}`;
       alertBox.textContent = mensaje;
+      alertBox.classList.remove('hidden');
     }
 
     const togglePass = document.getElementById('togglePass');
@@ -99,7 +100,7 @@
         : '<path d="M9.9 4.2A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a13.2 13.2 0 0 1-2.2 2.9"></path><path d="M6.6 6.6A13.2 13.2 0 0 0 2 11s3.5 7 10 7a9 9 0 0 0 3.4-.7"></path><path d="m2 2 20 20"></path>';
     });
 
- * document.getElementById('linkForgot').addEventListener('click', () => {
+    document.getElementById('linkForgot').addEventListener('click', () => {
       mostrarAlerta('Para restablecer tu contraseña, contacta al administrador del sistema.', 'info');
     });
 
@@ -128,4 +129,4 @@
     });
   </script>
 </body>
-</h*tml>
+</html>
