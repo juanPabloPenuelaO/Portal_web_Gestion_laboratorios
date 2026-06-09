@@ -34,7 +34,7 @@ const login = asyncHandler(async (req, res) => {
   );
 
   res.json({
-    mensaje: 'Inicio de sesión exitoso',
+    mensaje: 's|esión exitoso',
     token,
     usuario: {
       id: usuario.id,

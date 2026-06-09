@@ -53,7 +53,8 @@ function buildSidebar() {
 
     nav.innerHTML += `
       <button class="nav-item" data-module="${mod.id}">
-        <span>${mod.icono}</span> ${mod.titulo}
+        <span class="nav-icon">${mod.icono || ''}</span>
+        <span class="nav-text">${mod.titulo}</span>
       </button>`;
   });
 
@@ -63,6 +64,7 @@ function buildSidebar() {
 }
 
 function navigateTo(moduleId) {
+  closeSidebarMobile();
   document.querySelectorAll('.nav-item').forEach((b) => b.classList.remove('active'));
   document.querySelector(`[data-module="${moduleId}"]`)?.classList.add('active');
 
@@ -123,7 +125,7 @@ async function cargarTipos(puedeEditar) {
     }
 
     table.innerHTML = `
-      <table>
+      <div class="table-scroll"><table>
         <thead><tr><th>ID</th><th>Nombre</th><th>Estado</th>${puedeEditar ? '<th>Acciones</th>' : ''}</tr></thead>
         <tbody>${tipos.map((t) => `
           <tr>
@@ -136,7 +138,7 @@ async function cargarTipos(puedeEditar) {
             </td>` : ''}
           </tr>`).join('')}
         </tbody>
-      </table>`;
+      </table></div>`;
   } catch (err) {
     document.getElementById('tiposTable').innerHTML = `<div class="alert alert-error">${err.message}</div>`;
   }
@@ -228,7 +230,7 @@ async function cargarLaboratorios(puedeEditar) {
     }
 
     table.innerHTML = `
-      <table>
+      <div class="table-scroll"><table>
         <thead><tr>
           <th>Nombre</th><th>Ubicación</th><th>Tipo</th><th>Capacidad</th>
           <th>Equipos</th><th>Estado</th>${puedeEditar ? '<th>Acciones</th>' : ''}
@@ -247,7 +249,7 @@ async function cargarLaboratorios(puedeEditar) {
             </td>` : ''}
           </tr>`).join('')}
         </tbody>
-      </table>`;
+      </table></div>`;
   } catch (err) {
     document.getElementById('labsTable').innerHTML = `<div class="alert alert-error">${err.message}</div>`;
   }
@@ -343,9 +345,9 @@ async function renderUsuarios() {
         ${puedeCrear ? '<button class="btn btn-primary btn-sm" id="btnNuevoUser">+ Nuevo usuario</button>' : ''}
       </div>
       <div class="card-body">
-        <div style="margin-bottom:1rem;display:flex;gap:0.75rem">
-          <input id="filtroBusqueda" placeholder="Buscar por nombre o email..." style="flex:1;padding:0.5rem 0.75rem;border:1px solid var(--border);border-radius:8px">
-          <select id="filtroRol" style="padding:0.5rem;border:1px solid var(--border);border-radius:8px">
+        <div class="filters-inline">
+          <input id="filtroBusqueda" class="filter-input" placeholder="Buscar por nombre o email...">
+          <select id="filtroRol" class="filter-select">
             <option value="">Todos los roles</option>
           </select>
         </div>
@@ -389,7 +391,7 @@ async function cargarUsuarios(puedeEditar) {
     }
 
     table.innerHTML = `
-      <table>
+      <div class="table-scroll"><table>
         <thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th>${puedeEditar ? '<th>Acciones</th>' : ''}</tr></thead>
         <tbody>${usuarios.map((u) => `
           <tr>
@@ -403,7 +405,7 @@ async function cargarUsuarios(puedeEditar) {
             </td>` : ''}
           </tr>`).join('')}
         </tbody>
-      </table>`;
+      </table></div>`;
   } catch (err) {
     document.getElementById('usersTable').innerHTML = `<div class="alert alert-error">${err.message}</div>`;
   }
@@ -476,62 +478,290 @@ async function desactivarUsuario(id) {
 }
 
 // ─── Módulos adicionales (vista básica RF-29) ────────────────
-async function renderInicio() {
-  const session = Auth.getSession();
-  const modulosVisibles = MODULOS.filter((m) => !m.permiso || Auth.tienePermiso(m.permiso));
+// ─── Dashboard (vista de inicio) ─────────────────────────────
+const DASH_ICONS = {
+  flask: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/></svg>',
+  calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>',
+  warning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>',
+};
 
-  document.getElementById('contentArea').innerHTML = `
-    <div class="stats-grid">
-      <div class="stat-card"><div class="label">Rol activo</div><div class="value" style="font-size:1.25rem">${session.etiquetaRol || ETIQUETAS_ROLES[session.rol]}</div></div>
-      <div class="stat-card"><div class="label">Módulos disponibles</div><div class="value">${modulosVisibles.length}</div></div>
-      <div class="stat-card"><div class="label">Permisos</div><div class="value">${session.permisos?.length || 0}</div></div>
+const INV_COLORES = {
+  disponible: { color: '#16a34a', etiqueta: 'Disponible' },
+  prestado: { color: '#4b3f9e', etiqueta: 'En préstamo' },
+  mantenimiento: { color: '#d97706', etiqueta: 'En reparación' },
+  baja: { color: '#dc2626', etiqueta: 'Fuera de servicio' },
+};
+
+let _ocupacionDash = [];
+
+async function renderInicio() {
+  const area = document.getElementById('contentArea');
+  area.innerHTML = '<div class="empty-state">Cargando panel...</div>';
+
+  let laboratorios = [];
+  let reservas = [];
+  try { laboratorios = (await api.get('/laboratorios')).laboratorios || []; } catch (_) { /* sin acceso */ }
+  try { reservas = (await api.get('/reservas/calendario')).reservas || []; } catch (_) { /* sin acceso */ }
+
+  const ahora = Date.now();
+  const hace7 = ahora - 7 * 86400000;
+  const en7 = ahora + 7 * 86400000;
+
+  const labsActivos = laboratorios.filter((l) => l.estado === 'activo').length;
+  const labsMantenimiento = laboratorios.filter((l) => l.estado === 'mantenimiento');
+
+  const activas = reservas.filter((r) => r.estado === 'pendiente' || r.estado === 'aprobada');
+  const reservasSemana = activas.filter((r) => {
+    const f = new Date(r.fecha).getTime();
+    return f >= hace7 && f <= en7;
+  });
+  const pendientes = reservas.filter((r) => r.estado === 'pendiente');
+  const aprobadas = reservas.filter((r) => r.estado === 'aprobada');
+  const baseEstado = reservas.length || 1;
+  const pctAprob = Math.round((aprobadas.length / baseEstado) * 100);
+
+  // Ocupación por laboratorio (reservas activas) — top 6
+  const conteo = {};
+  activas.forEach((r) => {
+    const nombre = r.laboratorio?.nombre || 'Laboratorio';
+    conteo[nombre] = (conteo[nombre] || 0) + 1;
+  });
+  _ocupacionDash = Object.entries(conteo)
+    .map(([nombre, total]) => ({ nombre, total }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 6);
+  const maxOcup = Math.max(1, ..._ocupacionDash.map((o) => o.total));
+  const minOcup = Math.min(..._ocupacionDash.map((o) => o.total));
+
+  // Inventario (solo si tiene permiso) — dona
+  let inv = null;
+  if (Auth.tienePermiso('inventario.consultar') && laboratorios.length) {
+    inv = { disponible: 0, prestado: 0, mantenimiento: 0, baja: 0 };
+    const consultables = laboratorios.filter((l) => l.estado !== 'inactivo');
+    const resultados = await Promise.allSettled(
+      consultables.map((l) => api.get(`/inventario/laboratorio/${l.id}`))
+    );
+    resultados.forEach((r) => {
+      const pe = r.status === 'fulfilled' ? r.value?.resumen?.porEstado : null;
+      if (pe) {
+        inv.disponible += pe.disponible || 0;
+        inv.prestado += pe.prestado || 0;
+        inv.mantenimiento += pe.mantenimiento || 0;
+        inv.baja += pe.baja || 0;
+      }
+    });
+  }
+
+  // Alertas del sistema (derivadas de datos reales)
+  const alertas = [];
+  if (labsMantenimiento.length) {
+    alertas.push({ tipo: 'danger', titulo: `${labsMantenimiento.length} laboratorio(s) en mantenimiento`, detalle: labsMantenimiento.map((l) => l.nombre).join(', ') });
+  }
+  if (inv && inv.mantenimiento) {
+    alertas.push({ tipo: 'warning', titulo: `${inv.mantenimiento} equipo(s) en reparación`, detalle: 'Revisa el inventario para más detalle' });
+  }
+  if (pendientes.length) {
+    alertas.push({ tipo: 'info', titulo: `${pendientes.length} solicitud(es) de reserva pendientes`, detalle: 'Esperando aprobación' });
+  }
+  if (!alertas.length) {
+    alertas.push({ tipo: 'success', titulo: 'Todo en orden', detalle: 'No hay alertas activas en este momento' });
+  }
+
+  const recientes = [...reservas]
+    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+    .slice(0, 5);
+
+  area.innerHTML = `
+    <div class="dash-kpis">
+      ${kpiCard(DASH_ICONS.flask, 'neutral', labsActivos, 'Laboratorios activos', `de ${laboratorios.length} registrados`)}
+      ${kpiCard(DASH_ICONS.calendar, 'info', reservasSemana.length, 'Reservas esta semana', 'ventana de 7 días')}
+      ${kpiCard(DASH_ICONS.check, 'success', `${pctAprob}%`, 'Reservas aprobadas', `${aprobadas.length} de ${reservas.length}`)}
+      ${kpiCard(DASH_ICONS.warning, 'danger', pendientes.length, 'Reservas pendientes', 'por aprobar')}
     </div>
-    <div class="card"><div class="card-body">
-      <h3 style="margin-bottom:0.5rem">Bienvenido, ${session.nombre}</h3>
-      <p style="color:var(--muted)">${session.descripcionRol || ''}</p>
-      <p style="margin-top:1rem;font-size:0.875rem">Use el menú lateral para acceder a los módulos habilitados para su rol.</p>
-    </div></div>`;
+
+    <div class="dash-row">
+      <div class="dash-panel">
+        <div class="panel-head">
+          <h2>Ocupación por laboratorio</h2>
+          <button class="btn btn-secondary btn-sm" id="btnExportOcup">Exportar</button>
+        </div>
+        ${_ocupacionDash.length ? `
+        <div class="bar-chart">
+          ${_ocupacionDash.map((o) => {
+            const pct = Math.round((o.total / maxOcup) * 100);
+            const esMin = o.total === minOcup && _ocupacionDash.length > 1;
+            return `<div class="bar-row">
+              <span class="bar-label" title="${o.nombre}">${o.nombre}</span>
+              <span class="bar-track"><span class="bar-fill ${esMin ? 'bar-fill-low' : ''}" style="width:${pct}%"></span></span>
+              <span class="bar-value">${o.total}</span>
+            </div>`;
+          }).join('')}
+        </div>` : '<div class="empty-state">Sin reservas para mostrar ocupación</div>'}
+      </div>
+
+      <div class="dash-panel">
+        <div class="panel-head"><h2>Estado de inventario</h2></div>
+        ${donutInventario(inv)}
+      </div>
+    </div>
+
+    <div class="dash-row">
+      <div class="dash-panel">
+        <div class="panel-head"><h2>Reservas recientes</h2></div>
+        ${recientes.length ? `
+        <div class="table-scroll"><table>
+          <thead><tr><th>Laboratorio</th><th>Docente</th><th>Asignatura</th><th>Fecha</th><th>Estado</th></tr></thead>
+          <tbody>${recientes.map((r) => `
+            <tr>
+              <td>${r.laboratorio?.nombre || '—'}</td>
+              <td>${r.docente?.nombre || '—'}</td>
+              <td>${r.asignatura || '—'}</td>
+              <td>${r.fecha}</td>
+              <td>${UI.badgeEstado(r.estado)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>` : '<div class="empty-state">No hay reservas registradas</div>'}
+      </div>
+
+      <div class="dash-panel">
+        <div class="panel-head"><h2>Alertas del sistema</h2></div>
+        <div class="dash-alerts">
+          ${alertas.map((a) => `
+            <div class="dash-alert dash-alert-${a.tipo}">
+              <strong>${a.titulo}</strong>
+              <span>${a.detalle}</span>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById('btnExportOcup')?.addEventListener('click', exportarOcupacionCSV);
+}
+
+function kpiCard(icono, tono, valor, etiqueta, sub) {
+  return `<div class="kpi-card">
+    <div class="kpi-top">
+      <div class="kpi-text">
+        <div class="kpi-value">${valor}</div>
+        <div class="kpi-label">${etiqueta}</div>
+      </div>
+      <div class="kpi-icon kpi-icon-${tono}">${icono}</div>
+    </div>
+    <div class="kpi-sub">${sub}</div>
+  </div>`;
+}
+
+function donutInventario(inv) {
+  const total = inv ? inv.disponible + inv.prestado + inv.mantenimiento + inv.baja : 0;
+  if (!inv) {
+    return '<div class="empty-state">Sin acceso al inventario para tu rol</div>';
+  }
+  if (!total) {
+    return '<div class="empty-state">No hay equipos registrados</div>';
+  }
+
+  const orden = ['disponible', 'prestado', 'mantenimiento', 'baja'];
+  let acumulado = 0;
+  const tramos = [];
+  const leyenda = [];
+  orden.forEach((clave) => {
+    const cantidad = inv[clave];
+    const pct = Math.round((cantidad / total) * 100);
+    const inicio = acumulado;
+    acumulado += pct;
+    const { color, etiqueta } = INV_COLORES[clave];
+    tramos.push(`${color} ${inicio}% ${acumulado}%`);
+    leyenda.push(`<div class="legend-item">
+      <span class="legend-dot" style="background:${color}"></span>
+      <span class="legend-name">${etiqueta}</span>
+      <span class="legend-val">${pct}%</span>
+    </div>`);
+  });
+
+  return `<div class="donut-wrap">
+    <div class="donut" style="background:conic-gradient(${tramos.join(',')})">
+      <div class="donut-hole"><span>${total}</span><small>equipos</small></div>
+    </div>
+    <div class="donut-legend">${leyenda.join('')}</div>
+  </div>`;
+}
+
+function exportarOcupacionCSV() {
+  if (!_ocupacionDash.length) return;
+  const filas = [['Laboratorio', 'Reservas activas'], ..._ocupacionDash.map((o) => [o.nombre, o.total])];
+  const csv = filas.map((f) => f.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'ocupacion-laboratorios.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─── Reservas (gestión) ──────────────────────────────────────
+const MESES_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+const RESERVAS_PAGE_SIZE = 8;
+const ICO_EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>';
+const ICO_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+const ICO_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+const ICO_TABLA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>';
+const ICO_TARJETAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>';
+
+let _reservasData = [];
+let _reservasPage = 1;
+let _reservasVista = 'tabla';
+
+function fechaLarga(f) {
+  if (!f) return '—';
+  const [y, m, d] = String(f).split('-').map(Number);
+  if (!y || !m || !d) return f;
+  return `${d} ${MESES_ES[m - 1]} ${y}`;
+}
+
+function horaCorta(h) {
+  return (h || '').slice(0, 5);
 }
 
 async function renderReservas() {
-  const session = Auth.getSession();
   const puedeSolicitar = Auth.tienePermiso('reservas.solicitar');
-  const puedeAprobar = Auth.tienePermiso('reservas.aprobar');
-  const puedeCancelar = Auth.tienePermiso('reservas.cancelar');
-  const puedeFiltrarDocente = Auth.tienePermiso('usuarios.listar');
+  _reservasVista = 'tabla';
+  _reservasPage = 1;
+
+  document.getElementById('pageTitle').textContent = 'Gestión de Reservas';
+  document.getElementById('pageSubtitle').textContent = 'Portal · Reservas';
 
   document.getElementById('contentArea').innerHTML = `
     <div id="reservasAlert"></div>
-    <div class="card">
-      <div class="card-header">
-        <h2>Gestión de reservas</h2>
-        ${puedeSolicitar ? '<button class="btn btn-primary btn-sm" id="btnSolicitarReserva">+ Solicitar reserva</button>' : ''}
+    <div class="reservas-toolbar">
+      ${puedeSolicitar ? '<button class="btn btn-primary" id="btnSolicitarReserva">+ Nueva Reserva</button>' : '<span></span>'}
+      <div class="view-toggle">
+        <button class="view-btn active" data-vista="tabla" title="Vista de tabla" onclick="cambiarVistaReservas('tabla')">${ICO_TABLA}</button>
+        <button class="view-btn" data-vista="calendario" title="Vista de tarjetas" onclick="cambiarVistaReservas('calendario')">${ICO_TARJETAS}</button>
       </div>
+    </div>
+
+    <div class="card">
       <div class="card-body">
-        <div class="filters-bar">
-          <div class="form-group">
-            <label>Laboratorio</label>
-            <select id="filtroLab"><option value="">Todos</option></select>
+        <div class="reservas-filtros">
+          <div class="filtro-buscar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="search" id="resBuscar" placeholder="Buscar por laboratorio o docente...">
           </div>
-          ${puedeFiltrarDocente ? `<div class="form-group">
-            <label>Docente</label>
-            <select id="filtroDocente"><option value="">Todos</option></select>
-          </div>` : ''}
-          <div class="form-group">
-            <label>Programa / Asignatura</label>
-            <input id="filtroPrograma" placeholder="Ej: Programación">
-          </div>
-          <div class="form-group">
-            <label>Desde</label>
-            <input type="date" id="filtroDesde">
-          </div>
-          <div class="form-group">
-            <label>Hasta</label>
-            <input type="date" id="filtroHasta">
-          </div>
-          <button class="btn btn-primary btn-sm" id="btnFiltrarReservas">Filtrar</button>
+          <select id="resLab" class="filtro-select"><option value="">Laboratorio: Todos</option></select>
+          <select id="resEstado" class="filtro-select">
+            <option value="">Estado: Todos</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="aprobada">Aprobada</option>
+            <option value="rechazada">Rechazada</option>
+            <option value="cancelada">Cancelada</option>
+          </select>
+          <input type="date" id="resDesde" class="filtro-date" title="Desde">
+          <input type="date" id="resHasta" class="filtro-date" title="Hasta">
+          <button class="auth-link" id="btnLimpiarFiltros" type="button">Limpiar filtros</button>
         </div>
-        <div id="reservasContent">Cargando calendario...</div>
+        <div id="reservasContent"><div class="empty-state">Cargando reservas...</div></div>
       </div>
     </div>`;
 
@@ -539,79 +769,227 @@ async function renderReservas() {
     document.getElementById('btnSolicitarReserva').addEventListener('click', abrirFormReserva);
   }
 
-  document.getElementById('btnFiltrarReservas').addEventListener('click', cargarCalendarioReservas);
-
   try {
-    const { laboratorios } = await api.get('/laboratorios?estado=activo');
-    const selLab = document.getElementById('filtroLab');
+    const { laboratorios } = await api.get('/laboratorios');
+    const sel = document.getElementById('resLab');
     laboratorios.forEach((l) => {
-      selLab.innerHTML += `<option value="${l.id}">${l.nombre}</option>`;
+      sel.innerHTML += `<option value="${l.id}">${l.nombre}</option>`;
     });
+  } catch (_) { /* opcional */ }
 
-    if (puedeFiltrarDocente) {
-      const { usuarios } = await api.get('/usuarios?rol=docente&estado=activo');
-      const selDoc = document.getElementById('filtroDocente');
-      usuarios.forEach((u) => {
-        selDoc.innerHTML += `<option value="${u.id}">${u.nombre}</option>`;
-      });
-    }
-  } catch (_) { /* filtros opcionales */ }
+  ['resBuscar', 'resEstado', 'resLab', 'resDesde', 'resHasta'].forEach((id) => {
+    const el = document.getElementById(id);
+    el?.addEventListener(id === 'resBuscar' ? 'input' : 'change', () => {
+      _reservasPage = 1;
+      renderVistaReservas();
+    });
+  });
 
-  await cargarCalendarioReservas();
+  document.getElementById('btnLimpiarFiltros').addEventListener('click', () => {
+    ['resBuscar', 'resEstado', 'resLab', 'resDesde', 'resHasta'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    _reservasPage = 1;
+    renderVistaReservas();
+  });
+
+  await recargarReservas();
 }
 
-async function cargarCalendarioReservas() {
+async function recargarReservas() {
+  const container = document.getElementById('reservasContent');
+  try {
+    const { reservas } = await api.get('/reservas/calendario?activas=false');
+    _reservasData = reservas || [];
+    renderVistaReservas();
+  } catch (err) {
+    if (container) container.innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+  }
+}
+
+function reservasFiltradas() {
+  const q = (document.getElementById('resBuscar')?.value || '').trim().toLowerCase();
+  const lab = document.getElementById('resLab')?.value || '';
+  const estado = document.getElementById('resEstado')?.value || '';
+  const desde = document.getElementById('resDesde')?.value || '';
+  const hasta = document.getElementById('resHasta')?.value || '';
+
+  return _reservasData.filter((r) => {
+    if (lab && String(r.laboratorio_id) !== lab) return false;
+    if (estado && r.estado !== estado) return false;
+    if (desde && r.fecha < desde) return false;
+    if (hasta && r.fecha > hasta) return false;
+    if (q) {
+      const texto = `${r.laboratorio?.nombre || ''} ${r.docente?.nombre || ''} ${r.asignatura || ''} ${r.grupo || ''}`.toLowerCase();
+      if (!texto.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function renderVistaReservas() {
+  const filtradas = reservasFiltradas();
+  if (_reservasVista === 'calendario') {
+    renderCalendarioReservas(filtradas);
+  } else {
+    renderTablaReservas(filtradas);
+  }
+}
+
+function cambiarVistaReservas(vista) {
+  _reservasVista = vista;
+  document.querySelectorAll('.view-btn').forEach((b) => b.classList.toggle('active', b.dataset.vista === vista));
+  renderVistaReservas();
+}
+
+function irPaginaReservas(n) {
+  if (n < 1) return;
+  _reservasPage = n;
+  renderVistaReservas();
+}
+
+function paginacionBotones(actual, total) {
+  if (total <= 1) return '';
+  const nums = [];
+  const paginas = [...new Set([1, total, actual, actual - 1, actual + 1])]
+    .filter((n) => n >= 1 && n <= total)
+    .sort((a, b) => a - b);
+  let prev = 0;
+  paginas.forEach((n) => {
+    if (prev && n - prev > 1) nums.push('<span class="page-ellipsis">…</span>');
+    nums.push(`<button class="page-btn ${n === actual ? 'active' : ''}" onclick="irPaginaReservas(${n})">${n}</button>`);
+    prev = n;
+  });
+  return `<button class="page-btn nav" ${actual === 1 ? 'disabled' : ''} onclick="irPaginaReservas(${actual - 1})">‹</button>${nums.join('')}<button class="page-btn nav" ${actual === total ? 'disabled' : ''} onclick="irPaginaReservas(${actual + 1})">›</button>`;
+}
+
+function renderTablaReservas(filtradas) {
+  const puedeAprobar = Auth.tienePermiso('reservas.aprobar');
+  const container = document.getElementById('reservasContent');
+
+  const total = filtradas.length;
+  if (!total) {
+    container.innerHTML = '<div class="empty-state">No hay reservas con los filtros seleccionados</div>';
+    return;
+  }
+
+  const totalPaginas = Math.max(1, Math.ceil(total / RESERVAS_PAGE_SIZE));
+  if (_reservasPage > totalPaginas) _reservasPage = totalPaginas;
+  const inicio = (_reservasPage - 1) * RESERVAS_PAGE_SIZE;
+  const items = filtradas.slice(inicio, inicio + RESERVAS_PAGE_SIZE);
+
+  container.innerHTML = `
+    <div class="table-scroll"><table class="reservas-table">
+      <thead><tr>
+        <th class="col-check"><input type="checkbox" id="resCheckAll" aria-label="Seleccionar todo"></th>
+        <th>#</th>
+        <th>Laboratorio</th>
+        <th>Docente</th>
+        <th>Asignatura / Grupo</th>
+        <th>Fecha</th>
+        <th>Franja</th>
+        <th>Estado</th>
+        <th>Acciones</th>
+      </tr></thead>
+      <tbody>${items.map((r, i) => {
+        const acciones = [`<button class="icon-btn icon-view" title="Ver detalle" onclick="verReserva(${r.id})">${ICO_EYE}</button>`];
+        if (puedeAprobar && r.estado === 'pendiente') {
+          acciones.push(`<button class="icon-btn icon-ok" title="Aprobar" onclick="aprobarReserva(${r.id})">${ICO_CHECK}</button>`);
+          acciones.push(`<button class="icon-btn icon-no" title="Rechazar" onclick="rechazarReserva(${r.id})">${ICO_X}</button>`);
+        }
+        return `<tr class="res-row estado-${r.estado}">
+          <td class="col-check"><input type="checkbox" class="res-check" aria-label="Seleccionar reserva"></td>
+          <td>${inicio + i + 1}</td>
+          <td><strong>${r.laboratorio?.nombre || '—'}</strong></td>
+          <td>${r.docente?.nombre || '—'}</td>
+          <td>${r.asignatura || '—'} - G-${r.grupo || '—'}</td>
+          <td>${fechaLarga(r.fecha)}</td>
+          <td>${horaCorta(r.hora_inicio)} - ${horaCorta(r.hora_fin)}</td>
+          <td>${UI.badgeEstado(r.estado)}</td>
+          <td><div class="row-actions">${acciones.join('')}</div></td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>
+    <div class="pagination">
+      <span class="pagination-info">Mostrando ${inicio + 1}-${inicio + items.length} de ${total} reservas</span>
+      <div class="pagination-pages">${paginacionBotones(_reservasPage, totalPaginas)}</div>
+    </div>`;
+
+  const checkAll = document.getElementById('resCheckAll');
+  checkAll?.addEventListener('change', () => {
+    container.querySelectorAll('.res-check').forEach((c) => { c.checked = checkAll.checked; });
+  });
+}
+
+function renderCalendarioReservas(filtradas) {
   const session = Auth.getSession();
   const puedeAprobar = Auth.tienePermiso('reservas.aprobar');
   const puedeCancelar = Auth.tienePermiso('reservas.cancelar');
+  const container = document.getElementById('reservasContent');
 
-  let url = '/reservas/calendario?activas=true';
-  const lab = document.getElementById('filtroLab')?.value;
-  const doc = document.getElementById('filtroDocente')?.value;
-  const prog = document.getElementById('filtroPrograma')?.value;
-  const desde = document.getElementById('filtroDesde')?.value;
-  const hasta = document.getElementById('filtroHasta')?.value;
-
-  if (lab) url += `&laboratorio_id=${lab}`;
-  if (doc) url += `&docente_id=${doc}`;
-  if (prog) url += `&programa=${encodeURIComponent(prog)}`;
-  if (desde) url += `&fecha_inicio=${desde}`;
-  if (hasta) url += `&fecha_fin=${hasta}`;
-
-  try {
-    const { reservas } = await api.get(url);
-    const container = document.getElementById('reservasContent');
-
-    if (!reservas.length) {
-      container.innerHTML = '<div class="empty-state">No hay reservas activas con los filtros seleccionados</div>';
-      return;
-    }
-
-    container.innerHTML = `<div class="calendar-grid">${reservas.map((r) => {
-      const esPropia = r.docente_id === session.id;
-      const puedeCancelarEsta = puedeCancelar && (r.estado === 'aprobada' || r.estado === 'pendiente')
-        && (esPropia || puedeAprobar || session.rol === 'administrador');
-
-      return `<div class="calendar-item">
-        <div class="calendar-item-info">
-          <h4>${r.laboratorio?.nombre || 'Laboratorio'} — ${UI.badgeEstado(r.estado)}</h4>
-          <p><strong>${r.fecha}</strong> · ${r.hora_inicio} – ${r.hora_fin}</p>
-          <p>${r.asignatura} · Grupo ${r.grupo}</p>
-          <p>Docente: ${r.docente?.nombre || '—'}</p>
-          ${r.observaciones ? `<p style="margin-top:0.5rem;font-style:italic">Obs: ${r.observaciones}</p>` : ''}
-        </div>
-        <div class="actions" style="flex-shrink:0;flex-direction:column">
-          ${puedeAprobar && r.estado === 'pendiente' ? `
-            <button class="btn btn-primary btn-sm" onclick="aprobarReserva(${r.id})">Aprobar</button>
-            <button class="btn btn-danger btn-sm" onclick="rechazarReserva(${r.id})">Rechazar</button>` : ''}
-          ${puedeCancelarEsta ? `
-            <button class="btn btn-secondary btn-sm" onclick="cancelarReserva(${r.id}, '${r.estado}')">Cancelar</button>` : ''}
-        </div>
-      </div>`;
-    }).join('')}</div>`;
-  } catch (err) {
-    document.getElementById('reservasContent').innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+  if (!filtradas.length) {
+    container.innerHTML = '<div class="empty-state">No hay reservas con los filtros seleccionados</div>';
+    return;
   }
+
+  container.innerHTML = `<div class="calendar-grid">${filtradas.map((r) => {
+    const esPropia = r.docente_id === session.id;
+    const puedeCancelarEsta = puedeCancelar && (r.estado === 'aprobada' || r.estado === 'pendiente')
+      && (esPropia || puedeAprobar || session.rol === 'administrador');
+
+    return `<div class="calendar-item">
+      <div class="calendar-item-info">
+        <h4>${r.laboratorio?.nombre || 'Laboratorio'} — ${UI.badgeEstado(r.estado)}</h4>
+        <p><strong>${fechaLarga(r.fecha)}</strong> · ${horaCorta(r.hora_inicio)} – ${horaCorta(r.hora_fin)}</p>
+        <p>${r.asignatura} · Grupo ${r.grupo}</p>
+        <p>Docente: ${r.docente?.nombre || '—'}</p>
+        ${r.observaciones ? `<p style="margin-top:0.5rem;font-style:italic">Obs: ${r.observaciones}</p>` : ''}
+      </div>
+      <div class="actions" style="flex-shrink:0;flex-direction:column">
+        ${puedeAprobar && r.estado === 'pendiente' ? `
+          <button class="btn btn-primary btn-sm" onclick="aprobarReserva(${r.id})">Aprobar</button>
+          <button class="btn btn-danger btn-sm" onclick="rechazarReserva(${r.id})">Rechazar</button>` : ''}
+        ${puedeCancelarEsta ? `
+          <button class="btn btn-secondary btn-sm" onclick="cancelarReserva(${r.id}, '${r.estado}')">Cancelar</button>` : ''}
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function verReserva(id) {
+  const r = _reservasData.find((x) => x.id === id);
+  if (!r) return;
+  const session = Auth.getSession();
+  const puedeAprobar = Auth.tienePermiso('reservas.aprobar');
+  const puedeCancelar = Auth.tienePermiso('reservas.cancelar');
+  const esPropia = r.docente_id === session.id;
+  const puedeCancelarEsta = puedeCancelar && (r.estado === 'aprobada' || r.estado === 'pendiente')
+    && (esPropia || puedeAprobar || session.rol === 'administrador');
+
+  const footer = ['<button class="btn btn-secondary" onclick="UI.closeModal()">Cerrar</button>'];
+  if (puedeAprobar && r.estado === 'pendiente') {
+    footer.push(`<button class="btn btn-danger" onclick="rechazarReserva(${r.id})">Rechazar</button>`);
+    footer.push(`<button class="btn btn-primary" onclick="aprobarReserva(${r.id})">Aprobar</button>`);
+  } else if (puedeCancelarEsta) {
+    footer.push(`<button class="btn btn-danger" onclick="cancelarReserva(${r.id}, '${r.estado}')">Cancelar reserva</button>`);
+  }
+
+  UI.openModal(
+    'Detalle de la reserva',
+    `<div class="detalle-grid">
+      <div class="det-item"><label>Laboratorio</label>${r.laboratorio?.nombre || '—'}</div>
+      <div class="det-item"><label>Estado</label>${UI.badgeEstado(r.estado)}</div>
+      <div class="det-item"><label>Docente</label>${r.docente?.nombre || '—'}</div>
+      <div class="det-item"><label>Asignatura</label>${r.asignatura || '—'}</div>
+      <div class="det-item"><label>Grupo</label>G-${r.grupo || '—'}</div>
+      <div class="det-item"><label>Fecha</label>${fechaLarga(r.fecha)}</div>
+      <div class="det-item"><label>Franja</label>${horaCorta(r.hora_inicio)} - ${horaCorta(r.hora_fin)}</div>
+      <div class="det-item"><label>Ubicación</label>${r.laboratorio?.ubicacion || '—'}</div>
+    </div>
+    ${r.observaciones ? `<div class="det-item" style="margin-top:1rem"><label>Observaciones</label>${r.observaciones}</div>` : ''}`,
+    footer.join('')
+  );
 }
 
 async function abrirFormReserva() {
@@ -660,7 +1038,7 @@ async function abrirFormReserva() {
       await api.post('/reservas', body);
       UI.closeModal();
       UI.showAlert(document.getElementById('reservasAlert'), 'Reserva solicitada. El coordinador fue notificado.', 'success');
-      await cargarCalendarioReservas();
+      await recargarReservas();
       await cargarNotificaciones();
     } catch (err) {
       alert(err.message);
@@ -683,7 +1061,7 @@ async function aprobarReserva(id) {
       await api.patch(`/reservas/${id}/aprobar`, { observaciones: obs || undefined });
       UI.closeModal();
       UI.showAlert(document.getElementById('reservasAlert'), 'Reserva aprobada. Docente notificado.', 'success');
-      await cargarCalendarioReservas();
+      await recargarReservas();
       await cargarNotificaciones();
     } catch (err) {
       alert(err.message);
@@ -707,7 +1085,7 @@ async function rechazarReserva(id) {
       await api.patch(`/reservas/${id}/rechazar`, { observaciones: obs });
       UI.closeModal();
       UI.showAlert(document.getElementById('reservasAlert'), 'Reserva rechazada. Docente notificado.', 'success');
-      await cargarCalendarioReservas();
+      await recargarReservas();
       await cargarNotificaciones();
     } catch (err) {
       alert(err.message);
@@ -731,7 +1109,7 @@ async function cancelarReserva(id, estado) {
       await api.patch(`/reservas/${id}/cancelar`, { motivo });
       UI.closeModal();
       UI.showAlert(document.getElementById('reservasAlert'), 'Reserva cancelada. Involucrados notificados.', 'success');
-      await cargarCalendarioReservas();
+      await recargarReservas();
       await cargarNotificaciones();
     } catch (err) {
       alert(err.message);
@@ -811,8 +1189,35 @@ async function renderAnalitica() {
 
 function tablaHTML(headers, rows) {
   if (!rows.length) return '<p style="color:var(--muted);font-size:0.875rem">Sin datos</p>';
-  return `<table><thead><tr>${headers.map((h) => `<th>${h}</th>`).join('')}</tr></thead>
-    <tbody>${rows.join('')}</tbody></table>`;
+  return `<div class="table-scroll"><table><thead><tr>${headers.map((h) => `<th>${h}</th>`).join('')}</tr></thead>
+    <tbody>${rows.join('')}</tbody></table></div>`;
+}
+
+function closeSidebarMobile() {
+  document.getElementById('sidebar')?.classList.remove('open');
+  document.getElementById('sidebarBackdrop')?.classList.add('hidden');
+  document.getElementById('btnMenuToggle')?.setAttribute('aria-expanded', 'false');
+  document.body.classList.remove('sidebar-open');
+}
+
+function toggleSidebarMobile() {
+  const sidebar = document.getElementById('sidebar');
+  const backdrop = document.getElementById('sidebarBackdrop');
+  const btn = document.getElementById('btnMenuToggle');
+  if (!sidebar || !backdrop) return;
+
+  const open = sidebar.classList.toggle('open');
+  backdrop.classList.toggle('hidden', !open);
+  btn?.setAttribute('aria-expanded', open ? 'true' : 'false');
+  document.body.classList.toggle('sidebar-open', open);
+}
+
+function initSidebarMobile() {
+  document.getElementById('btnMenuToggle')?.addEventListener('click', toggleSidebarMobile);
+  document.getElementById('sidebarBackdrop')?.addEventListener('click', closeSidebarMobile);
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 992) closeSidebarMobile();
+  });
 }
 
 async function cargarDashboard() {
@@ -849,7 +1254,7 @@ async function cargarDashboard() {
           <div class="stat-card"><div class="label">Ejecutadas</div><div class="value" style="color:var(--success)">${d.rf36_practicas?.resumen?.ejecutadas || 0}</div></div>
           <div class="stat-card"><div class="label">Cumplimiento</div><div class="value">${d.rf36_practicas?.resumen?.porcentajeCumplimiento || 0}%</div></div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+        <div class="responsive-grid">
           <div>${tablaHTML(['Asignatura', 'Plan.', 'Ejec.', '%'], (d.rf36_practicas?.porAsignatura || []).map((a) =>
             `<tr><td>${a.etiqueta}</td><td>${a.planeadas}</td><td>${a.ejecutadas}</td><td>${a.porcentaje}%</td></tr>`))}</div>
           <div>${tablaHTML(['Docente', 'Plan.', 'Ejec.', '%'], (d.rf36_practicas?.porDocente || []).map((doc) =>
@@ -864,7 +1269,7 @@ async function cargarDashboard() {
           <div class="label">Promedio ausentismo</div>
           <div class="value">${d.rf37_ausentismo?.resumen?.promedioAusentismo || 0}%</div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+        <div class="responsive-grid">
           <div>${tablaHTML(['Asignatura', 'Sesiones', 'Ausentismo %'], (d.rf37_ausentismo?.porAsignatura || []).map((a) =>
             `<tr><td>${a.etiqueta}</td><td>${a.sesiones}</td><td>${a.porcentajeAusentismo}%</td></tr>`))}</div>
           <div>${tablaHTML(['Laboratorio', 'Sesiones', 'Ausentismo %'], (d.rf37_ausentismo?.porLaboratorio || []).map((l) =>
@@ -894,7 +1299,7 @@ async function cargarDashboard() {
       <div class="dashboard-section">
         <h3>RF-40 · Patrones de cancelación de reservas</h3>
         <p style="font-size:0.875rem;color:var(--muted);margin-bottom:0.75rem">Total cancelaciones: ${d.rf40_patronesCancelacion?.totalCancelaciones || 0}</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem">
+        <div class="responsive-grid responsive-grid-3">
           <div>${tablaHTML(['Docente', 'Cancel.'], (d.rf40_patronesCancelacion?.porDocente || []).slice(0, 5).map((p) =>
             `<tr><td>${p.etiqueta}</td><td>${p.cancelaciones}</td></tr>`))}</div>
           <div>${tablaHTML(['Laboratorio', 'Cancel.'], (d.rf40_patronesCancelacion?.porLaboratorio || []).slice(0, 5).map((p) =>
@@ -919,7 +1324,7 @@ async function cargarDashboard() {
       <!-- RF-42 -->
       <div class="dashboard-section">
         <h3>RF-42 · Comparativo por carrera/grupo y asignatura</h3>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+        <div class="responsive-grid">
           <div>${tablaHTML(['Asignatura', 'Plan.', 'Ejec.', 'Cumpl. %'], (d.rf42_comparativo?.porAsignatura || []).map((a) =>
             `<tr><td>${a.asignatura}</td><td>${a.planeadas}</td><td>${a.ejecutadas}</td><td>${a.cumplimiento}%</td></tr>`))}</div>
           <div>${tablaHTML(['Carrera/Grupo', 'Reservas', 'Asignaturas'], (d.rf42_comparativo?.porCarreraGrupo || []).map((g) =>
@@ -1051,7 +1456,7 @@ async function cargarInventario() {
     }
 
     container.innerHTML = `
-      <table>
+      <div class="table-scroll"><table>
         <thead><tr>
           <th>Nombre</th><th>Categoría</th><th>Tipo</th><th>N° Serie</th><th>Estado</th>
           ${puedeGestionar ? '<th>Acciones</th>' : ''}
@@ -1069,7 +1474,7 @@ async function cargarInventario() {
             </td>` : ''}
           </tr>`).join('')}
         </tbody>
-      </table>`;
+      </table></div>`;
   } catch (err) {
     document.getElementById('invContent').innerHTML = `<div class="alert alert-error">${err.message}</div>`;
   }
@@ -1242,7 +1647,7 @@ async function cargarListaPracticas(puedeEjecutar) {
     }
 
     container.innerHTML = `
-      <table>
+      <div class="table-scroll"><table>
         <thead><tr>
           <th>Asignatura</th><th>Periodo</th><th>Grupo</th><th>Laboratorio</th>
           <th>Fecha planeada</th><th>Estado</th>${puedeEjecutar ? '<th>Acción</th>' : ''}
@@ -1258,7 +1663,7 @@ async function cargarListaPracticas(puedeEjecutar) {
             ${puedeEjecutar ? `<td><button class="btn btn-primary btn-sm" onclick="ejecutarPractica(${p.id})">Marcar ejecutada</button></td>` : ''}
           </tr>`).join('')}
         </tbody>
-      </table>`;
+      </table></div>`;
   } catch (err) {
     document.getElementById('practicasLista').innerHTML = `<div class="alert alert-error">${err.message}</div>`;
   }
@@ -1287,11 +1692,11 @@ async function cargarSeguimientoPracticas() {
       </div>`;
 
     document.getElementById('practicasComparacion').innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem">
+      <div class="responsive-grid" style="margin-bottom:1.5rem">
         <div>
           <h3 style="font-size:0.9375rem;margin-bottom:0.75rem;color:var(--primary)">Por asignatura (RF-27)</h3>
           ${comparacion.porAsignatura.length ? `
-          <table><thead><tr><th>Asignatura</th><th>Plan.</th><th>Ejec.</th><th>Cumplimiento</th></tr></thead>
+          <div class="table-scroll"><table><thead><tr><th>Asignatura</th><th>Plan.</th><th>Ejec.</th><th>Cumplimiento</th></tr></thead>
           <tbody>${comparacion.porAsignatura.map((a) => `
             <tr>
               <td>${a.etiqueta}</td>
@@ -1299,12 +1704,12 @@ async function cargarSeguimientoPracticas() {
               <td>${a.ejecutadas}</td>
               <td>${barraProgreso(a.porcentajeEjecucion)}</td>
             </tr>`).join('')}
-          </tbody></table>` : '<p style="color:var(--muted);font-size:0.875rem">Sin datos</p>'}
+          </tbody></table></div>` : '<p style="color:var(--muted);font-size:0.875rem">Sin datos</p>'}
         </div>
         <div>
           <h3 style="font-size:0.9375rem;margin-bottom:0.75rem;color:var(--primary)">Por docente (RF-27)</h3>
           ${comparacion.porDocente.length ? `
-          <table><thead><tr><th>Docente</th><th>Plan.</th><th>Ejec.</th><th>Cumplimiento</th></tr></thead>
+          <div class="table-scroll"><table><thead><tr><th>Docente</th><th>Plan.</th><th>Ejec.</th><th>Cumplimiento</th></tr></thead>
           <tbody>${comparacion.porDocente.map((d) => `
             <tr>
               <td>${d.etiqueta}</td>
@@ -1312,13 +1717,13 @@ async function cargarSeguimientoPracticas() {
               <td>${d.ejecutadas}</td>
               <td>${barraProgreso(d.porcentajeEjecucion)}</td>
             </tr>`).join('')}
-          </tbody></table>` : '<p style="color:var(--muted);font-size:0.875rem">Sin datos</p>'}
+          </tbody></table></div>` : '<p style="color:var(--muted);font-size:0.875rem">Sin datos</p>'}
         </div>
       </div>`;
 
     document.getElementById('practicasDetalle').innerHTML = practicas.length ? `
       <h3 style="font-size:0.9375rem;margin-bottom:0.75rem;color:var(--primary)">Detalle de prácticas</h3>
-      <table>
+      <div class="table-scroll"><table>
         <thead><tr>
           <th>Asignatura</th><th>Periodo</th><th>Grupo</th><th>Docente</th><th>Laboratorio</th>
           <th>F. planeada</th><th>F. ejecutada</th><th>Estado</th>
@@ -1335,7 +1740,7 @@ async function cargarSeguimientoPracticas() {
             <td>${UI.badgeEstado(p.estado)}</td>
           </tr>`).join('')}
         </tbody>
-      </table>` : '<div class="empty-state">No hay prácticas con los filtros seleccionados</div>';
+      </table></div>` : '<div class="empty-state">No hay prácticas con los filtros seleccionados</div>';
   } catch (err) {
     document.getElementById('practicasResumen').innerHTML = `<div class="alert alert-error">${err.message}</div>`;
   }
@@ -1514,7 +1919,7 @@ async function cargarTabConsultas(tab) {
           <div class="calendar-grid">${data.eventos.map((e) => `
             <div class="calendar-item">
               <div class="calendar-item-info">
-                <h4>${e.laboratorio} — ${e.tipo === 'reserva' ? '📅 Reserva' : '🎓 Sesión'} ${UI.badgeEstado(e.estado)}</h4>
+                <h4>${e.laboratorio} — ${e.tipo === 'reserva' ? 'Reserva' : 'Sesión'} ${UI.badgeEstado(e.estado)}</h4>
                 <p><strong>${e.fecha}</strong> · ${e.hora_inicio} – ${e.hora_fin}</p>
                 ${e.asignatura ? `<p>${e.asignatura} · Grupo ${e.grupo}</p>` : ''}
                 <p>Docente: ${e.docente || '—'}</p>
@@ -1551,11 +1956,11 @@ async function cargarTabConsultas(tab) {
             <div class="stat-card"><div class="label">Disponibles</div><div class="value" style="color:var(--success)">${data.totalDisponibles}</div></div>
             <div class="stat-card"><div class="label">Ocupados</div><div class="value" style="color:var(--danger)">${data.totalNoDisponibles || data.noDisponibles?.length || 0}</div></div>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-top:1.5rem">
-            <div><h4 style="margin-bottom:0.75rem;color:var(--success)">✓ Disponibles</h4>
+          <div class="responsive-grid" style="margin-top:1.5rem">
+            <div><h4 style="margin-bottom:0.75rem;color:var(--success)">Disponibles</h4>
               ${(data.disponibles || []).map((l) => `<div class="calendar-item" style="margin-bottom:0.5rem;padding:0.75rem"><strong>${l.nombre}</strong><br><span style="font-size:0.8125rem;color:var(--muted)">${l.ubicacion} · ${l.tipo?.nombre || ''}</span></div>`).join('') || '<p style="color:var(--muted)">Ninguno</p>'}
             </div>
-            <div><h4 style="margin-bottom:0.75rem;color:var(--danger)">✗ No disponibles</h4>
+            <div><h4 style="margin-bottom:0.75rem;color:var(--danger)">No disponibles</h4>
               ${(data.noDisponibles || []).map((l) => `<div class="calendar-item" style="margin-bottom:0.5rem;padding:0.75rem;border-color:#fecaca"><strong>${l.nombre}</strong><br><span style="font-size:0.8125rem;color:var(--muted)">${l.conflictos ? `${l.conflictos.reservas} reservas, ${l.conflictos.sesiones} sesiones` : 'Ocupado'}</span></div>`).join('') || '<p style="color:var(--muted)">Ninguno</p>'}
             </div>
           </div>`;
@@ -1627,7 +2032,7 @@ function renderGobernanza() {
         <p>Los titulares pueden ejercer sus derechos de <strong>Acceso, Rectificación, Cancelación y Oposición</strong> (ARCO) mediante solicitud al administrador del sistema o al Oficial de Protección de Datos de la institución. Respuesta máxima: 10 días hábiles.</p>
 
         <h4>8. Transferencia y transmisión</h4>
-        <p>No se transfieren datos personales fuera del territorio colombiano. La transmisión entre la app móvil, portal web y API ocurre dentro de la infraestructura institucional autorizada.</p>
+        <p>No se transfieren datos personales fuera del territorio colombiano. La transmisión entre el portal web y la API ocurre dentro de la infraestructura institucional autorizada.</p>
 
         <h4>9. Incidentes de seguridad</h4>
         <p>Ante una brecha de datos personales, se notificará a la SIC y a los titulares afectados en un plazo máximo de 15 días hábiles, conforme al artículo 13 de la Ley 1581 de 2012.</p>
@@ -1648,8 +2053,22 @@ async function init() {
 
   const session = Auth.getSession();
   document.getElementById('userName').textContent = session.nombre;
-  document.getElementById('userEmail').textContent = session.email;
+  const emailEl = document.getElementById('userEmail');
+  if (emailEl) emailEl.textContent = session.email;
   document.getElementById('userRole').textContent = session.etiquetaRol || ETIQUETAS_ROLES[session.rol] || session.rol;
+
+  const iniciales = (session.nombre || '?')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() || '')
+    .join('');
+  document.getElementById('userAvatar').textContent = iniciales;
+  const topAvatar = document.getElementById('topbarAvatar');
+  if (topAvatar) {
+    topAvatar.textContent = iniciales;
+    topAvatar.title = `${session.nombre} · ${session.etiquetaRol || session.rol}`;
+  }
 
   document.getElementById('btnLogout').addEventListener('click', () => Auth.logout());
 
@@ -1663,6 +2082,7 @@ async function init() {
     }
   });
 
+  initSidebarMobile();
   buildSidebar();
   await cargarNotificaciones();
   navigateTo('inicio');

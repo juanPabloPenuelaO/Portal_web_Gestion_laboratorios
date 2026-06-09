@@ -3,39 +3,68 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GILIH — Portal Web</title>
+  <title>LabCheck — Portal Web</title>
   <link rel="stylesheet" href="css/main.css">
 </head>
 <body>
+  <div class="sidebar-backdrop hidden" id="sidebarBackdrop" aria-hidden="true"></div>
   <div class="app-layout">
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
-        <h2>GILIH</h2>
-        <span>Portal administrativo</span>
+        <span class="sidebar-logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            <path d="M9 12l2 2 4-4"></path>
+          </svg>
+        </span>
+        <span class="sidebar-brand">LabCheck</span>
       </div>
       <nav class="sidebar-nav" id="sidebarNav"></nav>
       <div class="sidebar-footer">
-        <div class="user-info">
-          <strong id="userName">—</strong>
-          <span id="userEmail">—</span>
-          <div class="user-role" id="userRole">—</div>
+        <div class="sidebar-user">
+          <div class="sidebar-avatar" id="userAvatar">—</div>
+          <div class="sidebar-user-info">
+            <strong id="userName">—</strong>
+            <span class="user-role" id="userRole">—</span>
+          </div>
         </div>
-        <button class="btn btn-secondary btn-sm" id="btnLogout" style="width:100%">Cerrar sesión</button>
+        <span id="userEmail" hidden></span>
+        <button class="btn btn-logout" id="btnLogout">Cerrar sesión</button>
       </div>
     </aside>
 
     <main class="main-content">
       <header class="topbar">
-        <div>
-          <h1 id="pageTitle">Inicio</h1>
-          <span id="pageSubtitle" style="color:var(--muted);font-size:0.875rem"></span>
+        <div class="topbar-left">
+          <button type="button" class="menu-toggle" id="btnMenuToggle" aria-label="Abrir menú" aria-expanded="false" aria-controls="sidebar">
+            <span class="menu-toggle-bar"></span>
+            <span class="menu-toggle-bar"></span>
+            <span class="menu-toggle-bar"></span>
+          </button>
+          <div class="topbar-titles">
+            <h1 id="pageTitle">Dashboard</h1>
+            <span id="pageSubtitle" class="page-subtitle"></span>
+          </div>
         </div>
         <div class="topbar-actions">
-          <div style="position:relative">
-            <button class="notif-btn" id="btnNotificaciones" title="Notificaciones">🔔</button>
+          <div class="topbar-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="7"></circle>
+              <path d="m21 21-4.3-4.3"></path>
+            </svg>
+            <input type="search" id="topbarSearch" placeholder="Buscar laboratorio, docente...">
+          </div>
+          <div class="notif-wrap">
+            <button class="notif-btn" id="btnNotificaciones" title="Notificaciones" aria-label="Notificaciones">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
+                <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
+              </svg>
+            </button>
             <span class="notif-badge hidden" id="notifCount">0</span>
             <div class="notif-panel hidden" id="notifPanel"></div>
           </div>
+          <div class="topbar-avatar" id="topbarAvatar" title="Sesión activa">—</div>
         </div>
       </header>
       <div class="content-area" id="contentArea"></div>
