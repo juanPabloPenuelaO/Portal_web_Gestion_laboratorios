@@ -1,16 +1,20 @@
 const { Sequelize } = require('sequelize');
-require('dotenv').config();
+const dbOptions = require('./dbOptions');
 
-const sequelize = new Sequelize(
-  process.env.DB_NAME,
-  process.env.DB_USER,
-  process.env.DB_PASS,
-  {
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT || 3306,
-    dialect: 'mysql',
-    logging: false,
-  }
-);
+const databaseUrl = process.env.DATABASE_URL?.trim();
+
+const sequelize = databaseUrl
+  ? new Sequelize(databaseUrl, {
+      dialect: 'postgres',
+      logging: dbOptions.logging,
+      define: dbOptions.define,
+      dialectOptions: dbOptions.dialectOptions,
+    })
+  : new Sequelize(
+      dbOptions.database,
+      dbOptions.username,
+      dbOptions.password,
+      dbOptions
+    );
 
 module.exports = sequelize;

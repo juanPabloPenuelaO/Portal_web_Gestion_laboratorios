@@ -1,19 +1,33 @@
 const { Op } = require('sequelize');
 const { Notificacion, Usuario, Rol } = require('../models');
+const { ESTADOS } = require('../config/estados');
 
-async function crearNotificacion({ usuario_id, reserva_id, tipo, titulo, mensaje }) {
-  return Notificacion.create({ usuario_id, reserva_id, tipo, titulo, mensaje });
+const notificacionesHabilitadas = () => process.env.DB_ENABLE_NOTIFICACIONES === 'true';
+
+async function crearNotificacion(payload) {
+  if (!notificacionesHabilitadas()) return null;
+  return Notificacion.create(payload);
 }
 
 async function notificarUsuarios(usuarioIds, payload) {
+  if (!notificacionesHabilitadas()) return;
   const unicos = [...new Set(usuarioIds.filter(Boolean))];
   await Promise.all(unicos.map((usuario_id) => crearNotificacion({ ...payload, usuario_id })));
 }
 
 async function obtenerCoordinadoresIds() {
   const coordinadores = await Usuario.findAll({
-    where: { estado: 'activo' },
-    include: [{ model: Rol, as: 'rol', where: { nombre: { [Op.in]: ['coordinador', 'director_programa'] } } }],
+    where: { estado: ESTADOS.USUARIO.ACTIVO },
+    include: [{
+      model: Rol,
+      as: 'rol',
+      where: {
+        [Op.or]: [
+          { nombre: { [Op.iLike]: 'coordinador' } },
+          { nombre: { [Op.iLike]: 'director_programa' } },
+        ],
+      },
+    }],
     attributes: ['id'],
   });
   return coordinadores.map((u) => u.id);

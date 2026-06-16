@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
+require('dotenv').config({ override: true, expand: false });
 
 const db = require('./models');
 const errorHandler = require('./middlewares/error.middleware');
@@ -13,7 +13,7 @@ app.use(express.json());
 app.get('/api/health', async (req, res) => {
   try {
     await db.sequelize.authenticate();
-    res.json({ status: 'GILIH API corriendo OK', database: 'conectada' });
+    res.json({ status: 'GILIH API corriendo OK', database: 'conectada', modo: process.env.DB_USE_EXISTING === 'true' ? 'supabase-existente' : 'migraciones' });
   } catch (error) {
     res.status(503).json({ status: 'GILIH API corriendo', database: 'desconectada', error: error.message });
   }
@@ -28,7 +28,9 @@ app.use('/api/sesiones', require('./routes/sesiones.routes'));
 app.use('/api/asistencias', require('./routes/asistencias.routes'));
 app.use('/api/reservas', require('./routes/reservas.routes'));
 app.use('/api/consultas', require('./routes/consultas.routes'));
-app.use('/api/notificaciones', require('./routes/notificaciones.routes'));
+if (process.env.DB_ENABLE_NOTIFICACIONES === 'true') {
+  app.use('/api/notificaciones', require('./routes/notificaciones.routes'));
+}
 app.use('/api/inventario', require('./routes/inventario.routes'));
 app.use('/api/prestamos', require('./routes/prestamos.routes'));
 app.use('/api/incidencias', require('./routes/incidencias.routes'));

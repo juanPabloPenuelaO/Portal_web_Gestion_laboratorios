@@ -1,6 +1,7 @@
 const { Prestamo, Equipo, Usuario } = require('../models');
 const asyncHandler = require('../utils/asyncHandler');
 const { marcarPrestado, marcarDisponiblePorDevolucion } = require('../utils/equipoEstado');
+const { ESTADOS, esEstado } = require('../config/estados');
 
 const solicitar = asyncHandler(async (req, res) => {
   const { equipo_id, sesion_id } = req.body;
@@ -10,7 +11,7 @@ const solicitar = asyncHandler(async (req, res) => {
   const equipo = await Equipo.findByPk(equipo_id);
   if (!equipo) return res.status(404).json({ mensaje: 'Recurso no encontrado' });
 
-  if (equipo.estado !== 'disponible') {
+  if (!esEstado(equipo.estado, ESTADOS.EQUIPO.DISPONIBLE)) {
     return res.status(400).json({
       mensaje: 'El recurso no está disponible para préstamo',
       estadoActual: equipo.estado,
@@ -22,7 +23,7 @@ const solicitar = asyncHandler(async (req, res) => {
     usuario_id: req.usuario.id,
     sesion_id: sesion_id || null,
     fecha_prestamo: new Date(),
-    estado: 'activo',
+    estado: ESTADOS.PRESTAMO.ACTIVO,
   });
 
   await marcarPrestado(equipo_id);
@@ -47,11 +48,11 @@ const devolver = asyncHandler(async (req, res) => {
 
   if (!prestamo) return res.status(404).json({ mensaje: 'Préstamo no encontrado' });
 
-  if (prestamo.estado === 'devuelto') {
+  if (esEstado(prestamo.estado, ESTADOS.PRESTAMO.DEVUELTO)) {
     return res.status(400).json({ mensaje: 'El préstamo ya fue devuelto' });
   }
 
-  prestamo.estado = 'devuelto';
+  prestamo.estado = ESTADOS.PRESTAMO.DEVUELTO;
   prestamo.fecha_devolucion = new Date();
   await prestamo.save();
 

@@ -6,8 +6,19 @@ const {
   marcarDisponibleTrasReparacion,
   ESTADOS,
 } = require('../utils/equipoEstado');
+const { esEstado, mapFiltroEquipo } = require('../config/estados');
 
-const CATEGORIAS_VALIDAS = ['equipo', 'licencia', 'insumo'];
+const CATEGORIAS_VALIDAS = ['hardware', 'software', 'instrumento', 'otro'];
+
+const mapCategoria = (categoria) => {
+  const alias = {
+    equipo: 'hardware',
+    licencia: 'software',
+    insumo: 'otro',
+  };
+  const valor = (categoria || '').toLowerCase();
+  return alias[valor] || valor;
+};
 const ESTADOS_VALIDOS = Object.values(ESTADOS);
 
 const registrarEquipo = asyncHandler(async (req, res) => {
@@ -20,20 +31,27 @@ const registrarEquipo = asyncHandler(async (req, res) => {
     });
   }
 
-  if (!CATEGORIAS_VALIDAS.includes(categoria)) {
+  const categoriaNormalizada = mapCategoria(categoria);
+
+  if (!CATEGORIAS_VALIDAS.includes(categoriaNormalizada)) {
     return res.status(400).json({ mensaje: 'Categoría no válida', categoriasPermitidas: CATEGORIAS_VALIDAS });
   }
 
   const laboratorio = await Laboratorio.findByPk(laboratorio_id);
   if (!laboratorio) return res.status(400).json({ mensaje: 'Laboratorio no válido' });
 
+  const estadoEquipo = estado ? mapFiltroEquipo(estado) : ESTADOS.DISPONIBLE;
+  if (estado && !ESTADOS_VALIDOS.includes(estadoEquipo)) {
+    return res.status(400).json({ mensaje: 'Estado no válido', estadosPermitidos: ESTADOS_VALIDOS });
+  }
+
   const equipo = await Equipo.create({
     nombre,
     numero_serie: numero_serie || null,
-    categoria,
+    categoria: categoriaNormalizada,
     tipo,
     laboratorio_id,
-    estado: estado && ESTADOS_VALIDOS.includes(estado) ? estado : ESTADOS.DISPONIBLE,
+    estado: ESTADOS_VALIDOS.includes(estadoEquipo) ? estadoEquipo : ESTADOS.DISPONIBLE,
   });
 
   const creado = await Equipo.findByPk(equipo.id, {
@@ -46,7 +64,8 @@ const registrarEquipo = asyncHandler(async (req, res) => {
 const actualizarEstado = asyncHandler(async (req, res) => {
   const { estado } = req.body;
 
-  if (!estado || !ESTADOS_VALIDOS.includes(estado)) {
+  const nuevoEstado = mapFiltroEquipo(estado);
+  if (!nuevoEstado || !ESTADOS_VALIDOS.includes(nuevoEstado)) {
     return res.status(400).json({
       mensaje: 'Estado no válido',
       estadosPermitidos: ESTADOS_VALIDOS,
@@ -56,7 +75,7 @@ const actualizarEstado = asyncHandler(async (req, res) => {
   const equipo = await Equipo.findByPk(req.params.id);
   if (!equipo) return res.status(404).json({ mensaje: 'Recurso no encontrado' });
 
-  await actualizarEstadoEquipo(equipo.id, estado);
+  await actualizarEstadoEquipo(equipo.id, nuevoEstado);
   await equipo.reload({ include: [{ model: Laboratorio, as: 'laboratorio' }] });
 
   res.json({ mensaje: 'Estado actualizado', equipo });
@@ -66,7 +85,7 @@ const reparar = asyncHandler(async (req, res) => {
   const equipo = await Equipo.findByPk(req.params.id);
   if (!equipo) return res.status(404).json({ mensaje: 'Recurso no encontrado' });
 
-  if (equipo.estado !== ESTADOS.MANTENIMIENTO) {
+  if (!esEstado(equipo.estado, ESTADOS.EN_MANTENIMIENTO)) {
     return res.status(400).json({ mensaje: 'Solo recursos en mantenimiento pueden marcarse como reparados' });
   }
 
@@ -84,8 +103,8 @@ const consultarPorLaboratorio = asyncHandler(async (req, res) => {
   if (!laboratorio) return res.status(404).json({ mensaje: 'Laboratorio no encontrado' });
 
   const where = { laboratorio_id };
-  if (estado) where.estado = estado;
-  if (categoria) where.categoria = categoria;
+  if (estado) where.estado = mapFiltroEquipo(estado);
+  if (categoria) where.categoria = mapCategoria(categoria);
   if (tipo) where.tipo = { [Op.like]: `%${tipo}%` };
   if (busqueda) {
     where[Op.or] = [
@@ -103,15 +122,16 @@ const consultarPorLaboratorio = asyncHandler(async (req, res) => {
   const resumen = {
     total: equipos.length,
     porEstado: {
-      disponible: equipos.filter((e) => e.estado === 'disponible').length,
-      prestado: equipos.filter((e) => e.estado === 'prestado').length,
-      mantenimiento: equipos.filter((e) => e.estado === 'mantenimiento').length,
-      baja: equipos.filter((e) => e.estado === 'baja').length,
+      disponible: equipos.filter((e) => esEstado(e.estado, ESTADOS.DISPONIBLE)).length,
+      prestado: equipos.filter((e) => esEstado(e.estado, ESTADOS.PRESTADO)).length,
+      mantenimiento: equipos.filter((e) => esEstado(e.estado, ESTADOS.EN_MANTENIMIENTO)).length,
+      baja: equipos.filter((e) => esEstado(e.estado, ESTADOS.BAJA)).length,
     },
     porCategoria: {
-      equipo: equipos.filter((e) => e.categoria === 'equipo').length,
-      licencia: equipos.filter((e) => e.categoria === 'licencia').length,
-      insumo: equipos.filter((e) => e.categoria === 'insumo').length,
+      hardware: equipos.filter((e) => mapCategoria(e.categoria) === 'hardware').length,
+      software: equipos.filter((e) => mapCategoria(e.categoria) === 'software').length,
+      instrumento: equipos.filter((e) => mapCategoria(e.categoria) === 'instrumento').length,
+      otro: equipos.filter((e) => mapCategoria(e.categoria) === 'otro').length,
     },
   };
 
@@ -126,9 +146,10 @@ const consultarPorLaboratorio = asyncHandler(async (req, res) => {
 const listarCategorias = asyncHandler(async (req, res) => {
   res.json({
     categorias: [
-      { valor: 'equipo', etiqueta: 'Equipo' },
-      { valor: 'licencia', etiqueta: 'Licencia de software' },
-      { valor: 'insumo', etiqueta: 'Insumo' },
+      { valor: 'hardware', etiqueta: 'Hardware' },
+      { valor: 'software', etiqueta: 'Software' },
+      { valor: 'instrumento', etiqueta: 'Instrumento' },
+      { valor: 'otro', etiqueta: 'Otro' },
     ],
     estados: ESTADOS_VALIDOS,
   });

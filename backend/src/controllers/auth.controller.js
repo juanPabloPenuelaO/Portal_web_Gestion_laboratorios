@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { Usuario, Rol } = require('../models');
-const { DESCRIPCION_ROLES, ETIQUETAS_ROLES, obtenerPermisosDeRol } = require('../config/roles');
+const { DESCRIPCION_ROLES, ETIQUETAS_ROLES, obtenerPermisosDeRol, normalizarRol } = require('../config/roles');
+const { esEstado } = require('../config/estados');
 const asyncHandler = require('../utils/asyncHandler');
 
 const login = asyncHandler(async (req, res) => {
@@ -15,7 +16,7 @@ const login = asyncHandler(async (req, res) => {
     include: [{ model: Rol, as: 'rol' }],
   });
 
-  if (!usuario || usuario.estado !== 'activo') {
+  if (!usuario || !esEstado(usuario.estado, 'ACTIVO')) {
     return res.status(401).json({ mensaje: 'Credenciales inválidas' });
   }
 
@@ -24,7 +25,7 @@ const login = asyncHandler(async (req, res) => {
     return res.status(401).json({ mensaje: 'Credenciales inválidas' });
   }
 
-  const rol = usuario.rol.nombre;
+  const rol = normalizarRol(usuario.rol.nombre);
   const permisos = obtenerPermisosDeRol(rol);
 
   const token = jwt.sign(
@@ -34,7 +35,7 @@ const login = asyncHandler(async (req, res) => {
   );
 
   res.json({
-    mensaje: 's|esión exitoso',
+    mensaje: 'Sesión exitosa',
     token,
     usuario: {
       id: usuario.id,
@@ -53,7 +54,7 @@ const me = asyncHandler(async (req, res) => {
     include: [{ model: Rol, as: 'rol' }],
   });
 
-  const rol = usuario.rol.nombre;
+  const rol = normalizarRol(usuario.rol.nombre);
 
   res.json({
     id: usuario.id,

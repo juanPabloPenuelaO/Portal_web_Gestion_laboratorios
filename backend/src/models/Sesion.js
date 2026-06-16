@@ -29,19 +29,23 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.TIME,
         allowNull: true,
       },
-      observaciones: {
+      observaciones_apertura: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
+      observaciones_cierre: {
         type: DataTypes.TEXT,
         allowNull: true,
       },
       estado: {
-        type: DataTypes.ENUM('abierta', 'cerrada', 'cancelada'),
+        type: DataTypes.STRING(20),
         allowNull: false,
         defaultValue: 'abierta',
       },
     },
     {
       tableName: 'sesiones',
-      underscored: true,
+      timestamps: false,
     }
   );
 

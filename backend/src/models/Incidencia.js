@@ -21,6 +21,10 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.INTEGER,
         allowNull: true,
       },
+      laboratorio_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
       tipo_falla: {
         type: DataTypes.STRING(100),
         allowNull: false,
@@ -38,10 +42,24 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: DataTypes.NOW,
       },
+      estado: {
+        type: DataTypes.STRING(30),
+        allowNull: false,
+        defaultValue: 'REPORTADA',
+      },
+      equipo_nombre: {
+        type: DataTypes.STRING(150),
+        allowNull: true,
+      },
+      tiene_evidencia: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
     },
     {
       tableName: 'incidencias',
-      underscored: true,
+      timestamps: false,
     }
   );
 
@@ -49,6 +67,7 @@ module.exports = (sequelize, DataTypes) => {
     Incidencia.belongsTo(models.Equipo, { foreignKey: 'equipo_id', as: 'equipo' });
     Incidencia.belongsTo(models.Usuario, { foreignKey: 'usuario_id', as: 'usuario' });
     Incidencia.belongsTo(models.Sesion, { foreignKey: 'sesion_id', as: 'sesion' });
+    Incidencia.belongsTo(models.Laboratorio, { foreignKey: 'laboratorio_id', as: 'laboratorio' });
   };
 
   return Incidencia;

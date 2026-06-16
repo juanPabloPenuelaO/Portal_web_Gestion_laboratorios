@@ -15,14 +15,14 @@ module.exports = (sequelize, DataTypes) => {
         unique: true,
       },
       estado: {
-        type: DataTypes.ENUM('activo', 'inactivo'),
+        type: DataTypes.STRING(20),
         allowNull: false,
         defaultValue: 'activo',
       },
     },
     {
       tableName: 'tipos_laboratorio',
-      underscored: true,
+      timestamps: false,
     }
   );
 

@@ -6,7 +6,6 @@ module.exports = {
       type: Sequelize.ENUM('equipo', 'licencia', 'insumo'),
       allowNull: false,
       defaultValue: 'equipo',
-      after: 'tipo',
     });
 
     await queryInterface.addIndex('equipos', ['categoria']);

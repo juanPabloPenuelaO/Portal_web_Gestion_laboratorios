@@ -6,10 +6,13 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
-    "db:migrate": "sequelize-cli db:migrate",
-    "db:migrate:undo": "sequelize-cli db:migrate:undo",
-    "db:seed": "sequelize-cli db:seed:all",
-    "db:reset": "sequelize-cli db:migrate:undo:all && sequelize-cli db:migrate && sequelize-cli db:seed:all",
+    "db:migrate": "echo \"Omitido: DB_USE_EXISTING=true — usar tablas de Supabase\" && exit 1",
+    "db:migrate:undo": "echo \"Omitido: DB_USE_EXISTING=true\" && exit 1",
+    "db:seed": "echo \"Omitido: DB_USE_EXISTING=true — datos ya en Supabase\" && exit 1",
+    "db:seed:jpenuela": "sequelize-cli db:seed --seed 20260327000005-usuario-jpenuela.js",
+    "db:reset": "echo \"Omitido: DB_USE_EXISTING=true\" && exit 1",
+    "db:inspect": "node scripts/inspect-schema.js",
+    "db:expected": "node scripts/expected-schema.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {
@@ -23,6 +26,7 @@
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "mysql2": "^3.22.4",
+    "pg": "^8.21.0",
     "sequelize": "^6.37.8"
   }
 }

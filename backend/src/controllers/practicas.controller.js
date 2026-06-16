@@ -1,15 +1,25 @@
 const { Op } = require('sequelize');
 const { Practica, Usuario, Laboratorio } = require('../models');
 const asyncHandler = require('../utils/asyncHandler');
-const { fechaActual } = require('../utils/codigo');
+const {
+  resumenPracticas,
+  agruparPracticas,
+  practicaPendiente,
+  estadoPractica,
+} = require('../utils/practicasHelpers');
 
 const planear = asyncHandler(async (req, res) => {
-  const { asignatura, periodo, laboratorio_id, grupo, fecha_planeada } = req.body;
+  const { asignatura, periodo, laboratorio_id, grupo, total_planeadas } = req.body;
+  const cantidad = parseInt(total_planeadas, 10) || 1;
 
-  if (!asignatura || !periodo || !laboratorio_id || !grupo || !fecha_planeada) {
+  if (!asignatura || !periodo || !laboratorio_id || !grupo) {
     return res.status(400).json({
-      mensaje: 'asignatura, periodo, laboratorio_id, grupo y fecha_planeada son requeridos',
+      mensaje: 'asignatura, periodo, laboratorio_id y grupo son requeridos',
     });
+  }
+
+  if (cantidad < 1) {
+    return res.status(400).json({ mensaje: 'total_planeadas debe ser al menos 1' });
   }
 
   const laboratorio = await Laboratorio.findByPk(laboratorio_id);
@@ -21,8 +31,8 @@ const planear = asyncHandler(async (req, res) => {
     periodo,
     laboratorio_id,
     grupo,
-    fecha_planeada,
-    estado: 'planeada',
+    total_planeadas: cantidad,
+    total_ejecutadas: 0,
   });
 
   const creada = await Practica.findByPk(practica.id, {
@@ -42,20 +52,24 @@ const ejecutar = asyncHandler(async (req, res) => {
 
   if (!practica) return res.status(404).json({ mensaje: 'Práctica no encontrada' });
 
-  if (practica.estado === 'ejecutada') {
-    return res.status(400).json({ mensaje: 'La práctica ya fue ejecutada' });
-  }
-
-  if (practica.estado === 'cancelada') {
-    return res.status(400).json({ mensaje: 'No se puede ejecutar una práctica cancelada' });
+  if ((practica.total_ejecutadas || 0) >= (practica.total_planeadas || 0)) {
+    return res.status(400).json({ mensaje: 'Todas las prácticas planeadas ya fueron ejecutadas' });
   }
 
   if (req.usuario.rol === 'docente' && practica.docente_id !== req.usuario.id) {
     return res.status(403).json({ mensaje: 'Solo puede ejecutar sus propias prácticas' });
   }
 
-  practica.estado = 'ejecutada';
-  practica.fecha_ejecutada = req.body.fecha_ejecutada || fechaActual();
+  const incremento = parseInt(req.body.cantidad, 10) || 1;
+  const nuevoTotal = (practica.total_ejecutadas || 0) + incremento;
+
+  if (nuevoTotal > (practica.total_planeadas || 0)) {
+    return res.status(400).json({
+      mensaje: `Solo puede ejecutar ${(practica.total_planeadas || 0) - (practica.total_ejecutadas || 0)} práctica(s) más`,
+    });
+  }
+
+  practica.total_ejecutadas = nuevoTotal;
   await practica.save();
 
   const actualizada = await Practica.findByPk(practica.id, {
@@ -68,44 +82,13 @@ const ejecutar = asyncHandler(async (req, res) => {
   res.json({ mensaje: 'Práctica marcada como ejecutada', practica: actualizada });
 });
 
-const agruparComparacion = (practicas, campo, etiquetaFn) => {
-  const grupos = {};
-
-  practicas.forEach((p) => {
-    const clave = campo === 'docente' ? p.docente_id : p[campo];
-    const etiqueta = etiquetaFn(p);
-
-    if (!grupos[clave]) {
-      grupos[clave] = {
-        id: campo === 'docente' ? p.docente_id : clave,
-        etiqueta,
-        total: 0,
-        planeadas: 0,
-        ejecutadas: 0,
-        canceladas: 0,
-        porcentajeEjecucion: 0,
-      };
-    }
-
-    grupos[clave].total += 1;
-    if (p.estado === 'planeada') grupos[clave].planeadas += 1;
-    if (p.estado === 'ejecutada') grupos[clave].ejecutadas += 1;
-    if (p.estado === 'cancelada') grupos[clave].canceladas += 1;
-  });
-
-  return Object.values(grupos).map((g) => ({
-    ...g,
-    porcentajeEjecucion: g.total > 0 ? Math.round((g.ejecutadas / g.total) * 100) : 0,
-  }));
-};
-
 const seguimiento = asyncHandler(async (req, res) => {
   const { periodo, docente_id, asignatura } = req.query;
   const where = {};
 
   if (periodo) where.periodo = periodo;
   if (docente_id) where.docente_id = docente_id;
-  if (asignatura) where.asignatura = { [Op.like]: `%${asignatura}%` };
+  if (asignatura) where.asignatura = { [Op.iLike]: `%${asignatura}%` };
 
   if (req.usuario.rol === 'docente') {
     where.docente_id = req.usuario.id;
@@ -117,31 +100,31 @@ const seguimiento = asyncHandler(async (req, res) => {
       { model: Usuario, as: 'docente', attributes: ['id', 'nombre', 'email'] },
       { model: Laboratorio, as: 'laboratorio' },
     ],
-    order: [['fecha_planeada', 'ASC']],
+    order: [['periodo', 'ASC'], ['asignatura', 'ASC']],
   });
 
-  const planeada = practicas.filter((p) => p.estado === 'planeada').length;
-  const ejecutada = practicas.filter((p) => p.estado === 'ejecutada').length;
-  const cancelada = practicas.filter((p) => p.estado === 'cancelada').length;
-  const total = practicas.length;
-  const porcentajeCumplimiento = total > 0 ? Math.round((ejecutada / total) * 100) : 0;
-
-  const porAsignatura = agruparComparacion(practicas, 'asignatura', (p) => p.asignatura);
-  const porDocente = agruparComparacion(practicas, 'docente', (p) => p.docente?.nombre || `Docente #${p.docente_id}`);
+  const resumen = resumenPracticas(practicas);
+  const porAsignatura = agruparPracticas(practicas, 'asignatura', (p) => p.asignatura);
+  const porDocente = agruparPracticas(practicas, 'docente', (p) => p.docente?.nombre || `Docente #${p.docente_id}`);
 
   res.json({
     resumen: {
-      total,
-      planeada,
-      ejecutada,
-      cancelada,
-      porcentajeCumplimiento,
+      ...resumen,
+      cancelada: 0,
     },
     comparacion: {
       porAsignatura,
       porDocente,
     },
-    practicas,
+    practicas: practicas.map((p) => ({
+      ...p.toJSON(),
+      estado: estadoPractica(p),
+      pendientes: Math.max(0, (p.total_planeadas || 0) - (p.total_ejecutadas || 0)),
+    })),
+    pendientes: practicas.filter(practicaPendiente).map((p) => ({
+      ...p.toJSON(),
+      estado: estadoPractica(p),
+    })),
   });
 });
 

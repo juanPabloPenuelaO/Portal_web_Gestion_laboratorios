@@ -19,16 +19,16 @@ module.exports = (sequelize, DataTypes) => {
         unique: true,
       },
       categoria: {
-        type: DataTypes.ENUM('equipo', 'licencia', 'insumo'),
+        type: DataTypes.STRING(20),
         allowNull: false,
-        defaultValue: 'equipo',
+        defaultValue: 'hardware',
       },
       tipo: {
         type: DataTypes.STRING(100),
         allowNull: false,
       },
       estado: {
-        type: DataTypes.ENUM('disponible', 'prestado', 'mantenimiento', 'baja'),
+        type: DataTypes.STRING(20),
         allowNull: false,
         defaultValue: 'disponible',
       },
@@ -39,7 +39,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     {
       tableName: 'equipos',
-      underscored: true,
+      timestamps: false,
     }
   );
 

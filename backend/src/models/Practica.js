@@ -5,7 +5,7 @@ module.exports = (sequelize, DataTypes) => {
     'Practica',
     {
       id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.BIGINT,
         primaryKey: true,
         autoIncrement: true,
       },
@@ -29,23 +29,22 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING(50),
         allowNull: false,
       },
-      fecha_planeada: {
-        type: DataTypes.DATEONLY,
+      total_planeadas: {
+        type: DataTypes.INTEGER,
         allowNull: false,
+        defaultValue: 0,
       },
-      fecha_ejecutada: {
-        type: DataTypes.DATEONLY,
-        allowNull: true,
-      },
-      estado: {
-        type: DataTypes.ENUM('planeada', 'ejecutada', 'cancelada'),
+      total_ejecutadas: {
+        type: DataTypes.INTEGER,
         allowNull: false,
-        defaultValue: 'planeada',
+        defaultValue: 0,
       },
     },
     {
       tableName: 'practicas',
-      underscored: true,
+      timestamps: true,
+      createdAt: 'created_at',
+      updatedAt: 'updated_at',
     }
   );
 

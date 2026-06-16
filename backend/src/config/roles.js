@@ -108,20 +108,24 @@ const ETIQUETAS_ROLES = {
   [ROLES.ESTUDIANTE]: 'Estudiante',
 };
 
+const normalizarRol = (rol) => (typeof rol === 'string' ? rol.toLowerCase() : rol);
+
 const obtenerPermisosDeRol = (rol) => {
-  if (rol === ROLES.ADMINISTRADOR) {
+  const rolNorm = normalizarRol(rol);
+  if (rolNorm === ROLES.ADMINISTRADOR) {
     return Object.keys(PERMISOS);
   }
 
   return Object.entries(PERMISOS)
-    .filter(([, roles]) => roles.includes(rol))
+    .filter(([, roles]) => roles.includes(rolNorm))
     .map(([permiso]) => permiso);
 };
 
 const tienePermiso = (rol, permiso) => {
-  if (rol === ROLES.ADMINISTRADOR) return true;
+  const rolNorm = normalizarRol(rol);
+  if (rolNorm === ROLES.ADMINISTRADOR) return true;
   const rolesPermitidos = PERMISOS[permiso];
-  return rolesPermitidos ? rolesPermitidos.includes(rol) : false;
+  return rolesPermitidos ? rolesPermitidos.includes(rolNorm) : false;
 };
 
 module.exports = {
@@ -129,6 +133,7 @@ module.exports = {
   PERMISOS,
   DESCRIPCION_ROLES,
   ETIQUETAS_ROLES,
+  normalizarRol,
   obtenerPermisosDeRol,
   tienePermiso,
 };

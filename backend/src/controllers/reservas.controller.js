@@ -1,6 +1,7 @@
 const { Op } = require('sequelize');
 const { Reserva, Laboratorio, Usuario } = require('../models');
 const asyncHandler = require('../utils/asyncHandler');
+const { ESTADOS, esEstado } = require('../config/estados');
 const {
   notificarSolicitudReserva,
   notificarAprobacionReserva,
@@ -25,7 +26,7 @@ const solicitar = asyncHandler(async (req, res) => {
     where: {
       laboratorio_id,
       fecha,
-      estado: { [Op.in]: ['pendiente', 'aprobada'] },
+      estado: { [Op.in]: [ESTADOS.RESERVA.PENDIENTE, ESTADOS.RESERVA.APROBADA] },
       [Op.and]: [
         { hora_inicio: { [Op.lt]: hora_fin } },
         { hora_fin: { [Op.gt]: hora_inicio } },
@@ -46,7 +47,7 @@ const solicitar = asyncHandler(async (req, res) => {
     asignatura,
     grupo,
     observaciones,
-    estado: 'pendiente',
+    estado: ESTADOS.RESERVA.PENDIENTE,
   });
 
   const creada = await Reserva.findByPk(reserva.id, {
@@ -71,13 +72,13 @@ const aprobar = asyncHandler(async (req, res) => {
 
   if (!reserva) return res.status(404).json({ mensaje: 'Reserva no encontrada' });
 
-  if (reserva.estado !== 'pendiente') {
+  if (!esEstado(reserva.estado, ESTADOS.RESERVA.PENDIENTE)) {
     return res.status(400).json({ mensaje: 'Solo se pueden aprobar reservas pendientes' });
   }
 
   const { observaciones } = req.body;
 
-  reserva.estado = 'aprobada';
+  reserva.estado = ESTADOS.RESERVA.APROBADA;
   if (observaciones) reserva.observaciones = observaciones;
   await reserva.save();
 
@@ -96,7 +97,7 @@ const rechazar = asyncHandler(async (req, res) => {
 
   if (!reserva) return res.status(404).json({ mensaje: 'Reserva no encontrada' });
 
-  if (reserva.estado !== 'pendiente') {
+  if (!esEstado(reserva.estado, ESTADOS.RESERVA.PENDIENTE)) {
     return res.status(400).json({ mensaje: 'Solo se pueden rechazar reservas pendientes' });
   }
 
@@ -105,7 +106,7 @@ const rechazar = asyncHandler(async (req, res) => {
     return res.status(400).json({ mensaje: 'Las observaciones son requeridas al rechazar una reserva' });
   }
 
-  reserva.estado = 'rechazada';
+  reserva.estado = ESTADOS.RESERVA.RECHAZADA;
   reserva.observaciones = observaciones;
   await reserva.save();
 
@@ -124,11 +125,11 @@ const cancelar = asyncHandler(async (req, res) => {
 
   if (!reserva) return res.status(404).json({ mensaje: 'Reserva no encontrada' });
 
-  if (reserva.estado === 'cancelada') {
+  if (esEstado(reserva.estado, ESTADOS.RESERVA.CANCELADA)) {
     return res.status(400).json({ mensaje: 'La reserva ya está cancelada' });
   }
 
-  if (reserva.estado === 'rechazada') {
+  if (esEstado(reserva.estado, ESTADOS.RESERVA.RECHAZADA)) {
     return res.status(400).json({ mensaje: 'No se puede cancelar una reserva rechazada' });
   }
 
@@ -140,20 +141,20 @@ const cancelar = asyncHandler(async (req, res) => {
     return res.status(403).json({ mensaje: 'No tienes permiso para cancelar esta reserva' });
   }
 
-  if (esDocente && reserva.estado !== 'aprobada' && reserva.estado !== 'pendiente') {
+  if (esDocente && !esEstado(reserva.estado, ESTADOS.RESERVA.APROBADA) && !esEstado(reserva.estado, ESTADOS.RESERVA.PENDIENTE)) {
     return res.status(400).json({ mensaje: 'Solo puede cancelar reservas pendientes o aprobadas propias' });
   }
 
-  if ((esCoordinador || esAdmin) && reserva.estado !== 'aprobada' && reserva.estado !== 'pendiente') {
+  if ((esCoordinador || esAdmin) && !esEstado(reserva.estado, ESTADOS.RESERVA.APROBADA) && !esEstado(reserva.estado, ESTADOS.RESERVA.PENDIENTE)) {
     return res.status(400).json({ mensaje: 'Solo se pueden cancelar reservas pendientes o aprobadas' });
   }
 
   const motivo = req.body.motivo || req.body.observaciones;
-  if (reserva.estado === 'aprobada' && !motivo) {
+  if (esEstado(reserva.estado, ESTADOS.RESERVA.APROBADA) && !motivo) {
     return res.status(400).json({ mensaje: 'El motivo de cancelación es requerido para reservas aprobadas' });
   }
 
-  reserva.estado = 'cancelada';
+  reserva.estado = ESTADOS.RESERVA.CANCELADA;
   if (motivo) {
     reserva.observaciones = `[Cancelada] ${motivo}${reserva.observaciones ? ` | ${reserva.observaciones}` : ''}`;
   }
@@ -189,7 +190,7 @@ const calendario = asyncHandler(async (req, res) => {
   if (estado) {
     where.estado = estado;
   } else if (activas !== 'false') {
-    where.estado = { [Op.in]: ['pendiente', 'aprobada'] };
+    where.estado = { [Op.in]: [ESTADOS.RESERVA.PENDIENTE, ESTADOS.RESERVA.APROBADA] };
   }
 
   if (fecha_inicio && fecha_fin) {

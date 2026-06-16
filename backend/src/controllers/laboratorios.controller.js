@@ -1,9 +1,10 @@
 const { Op } = require('sequelize');
 const { Laboratorio, TipoLaboratorio, Reserva, Equipo, Sesion } = require('../models');
 const asyncHandler = require('../utils/asyncHandler');
+const { ESTADOS, mapFiltroLaboratorio } = require('../config/estados');
 
 const crear = asyncHandler(async (req, res) => {
-  const { nombre, ubicacion, capacidad, tipo_id } = req.body;
+  const { nombre, ubicacion, capacidad, tipo_id, equipamiento } = req.body;
 
   if (!nombre || !ubicacion || !tipo_id) {
     return res.status(400).json({ mensaje: 'nombre, ubicacion y tipo_id son requeridos' });
@@ -17,6 +18,8 @@ const crear = asyncHandler(async (req, res) => {
     ubicacion,
     capacidad: capacidad || 0,
     tipo_id,
+    equipamiento: equipamiento || null,
+    estado: ESTADOS.LABORATORIO.DISPONIBLE,
   });
 
   const creado = await Laboratorio.findByPk(laboratorio.id, {
@@ -29,7 +32,7 @@ const crear = asyncHandler(async (req, res) => {
 const listar = asyncHandler(async (req, res) => {
   const { estado, tipo_id } = req.query;
   const where = {};
-  if (estado) where.estado = estado;
+  if (estado) where.estado = mapFiltroLaboratorio(estado);
   if (tipo_id) where.tipo_id = tipo_id;
 
   const laboratorios = await Laboratorio.findAll({
@@ -58,14 +61,14 @@ const disponibilidad = asyncHandler(async (req, res) => {
   }
 
   const laboratorios = await Laboratorio.findAll({
-    where: { estado: 'activo' },
+    where: { estado: ESTADOS.LABORATORIO.DISPONIBLE },
     include: [{ model: TipoLaboratorio, as: 'tipo' }],
   });
 
   const reservasConflicto = await Reserva.findAll({
     where: {
       fecha,
-      estado: { [Op.in]: ['pendiente', 'aprobada'] },
+      estado: { [Op.in]: [ESTADOS.RESERVA.PENDIENTE, ESTADOS.RESERVA.APROBADA] },
       [Op.and]: [
         { hora_inicio: { [Op.lt]: hora_fin } },
         { hora_fin: { [Op.gt]: hora_inicio } },
@@ -77,7 +80,7 @@ const disponibilidad = asyncHandler(async (req, res) => {
   const sesionesConflicto = await Sesion.findAll({
     where: {
       fecha,
-      estado: { [Op.in]: ['abierta', 'cerrada'] },
+      estado: { [Op.in]: [ESTADOS.SESION.ACTIVA, ESTADOS.SESION.CERRADA] },
     },
     attributes: ['laboratorio_id', 'hora_apertura', 'hora_cierre'],
   });
@@ -120,12 +123,13 @@ const actualizar = asyncHandler(async (req, res) => {
   const laboratorio = await Laboratorio.findByPk(req.params.id);
   if (!laboratorio) return res.status(404).json({ mensaje: 'Laboratorio no encontrado' });
 
-  const { nombre, ubicacion, capacidad, tipo_id, estado } = req.body;
+  const { nombre, ubicacion, capacidad, tipo_id, estado, equipamiento } = req.body;
   if (nombre) laboratorio.nombre = nombre;
   if (ubicacion) laboratorio.ubicacion = ubicacion;
   if (capacidad !== undefined) laboratorio.capacidad = capacidad;
   if (tipo_id) laboratorio.tipo_id = tipo_id;
-  if (estado) laboratorio.estado = estado;
+  if (estado) laboratorio.estado = mapFiltroLaboratorio(estado);
+  if (equipamiento !== undefined) laboratorio.equipamiento = equipamiento;
 
   await laboratorio.save();
 
@@ -140,7 +144,7 @@ const desactivar = asyncHandler(async (req, res) => {
   const laboratorio = await Laboratorio.findByPk(req.params.id);
   if (!laboratorio) return res.status(404).json({ mensaje: 'Laboratorio no encontrado' });
 
-  laboratorio.estado = 'inactivo';
+  laboratorio.estado = ESTADOS.LABORATORIO.EN_MANTENIMIENTO;
   await laboratorio.save();
 
   res.json({ mensaje: 'Laboratorio desactivado', id: laboratorio.id });

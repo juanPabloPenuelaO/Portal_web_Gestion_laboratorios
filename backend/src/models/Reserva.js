@@ -38,7 +38,7 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       estado: {
-        type: DataTypes.ENUM('pendiente', 'aprobada', 'rechazada', 'cancelada'),
+        type: DataTypes.STRING(20),
         allowNull: false,
         defaultValue: 'pendiente',
       },
@@ -49,7 +49,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     {
       tableName: 'reservas',
-      underscored: true,
+      timestamps: false,
     }
   );
 

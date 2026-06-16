@@ -1,5 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { Usuario, Rol } = require('../models');
+const { normalizarRol } = require('../config/roles');
+const { esEstado } = require('../config/estados');
 
 const auth = async (req, res, next) => {
   try {
@@ -15,7 +17,7 @@ const auth = async (req, res, next) => {
       include: [{ model: Rol, as: 'rol' }],
     });
 
-    if (!usuario || usuario.estado !== 'activo') {
+    if (!usuario || !esEstado(usuario.estado, 'ACTIVO')) {
       return res.status(401).json({ mensaje: 'Usuario no válido o inactivo' });
     }
 
@@ -24,7 +26,7 @@ const auth = async (req, res, next) => {
       nombre: usuario.nombre,
       email: usuario.email,
       rol_id: usuario.rol_id,
-      rol: usuario.rol.nombre,
+      rol: normalizarRol(usuario.rol.nombre),
     };
 
     next();

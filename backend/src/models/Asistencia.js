@@ -18,7 +18,7 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       metodo: {
-        type: DataTypes.ENUM('QR', 'codigo'),
+        type: DataTypes.STRING(20),
         allowNull: false,
       },
       timestamp: {
@@ -29,7 +29,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     {
       tableName: 'asistencias',
-      underscored: true,
+      timestamps: false,
     }
   );
 

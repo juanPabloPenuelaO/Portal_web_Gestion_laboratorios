@@ -1,16 +1,18 @@
 const { Incidencia, Equipo, Usuario, Sesion, Laboratorio } = require('../models');
 const asyncHandler = require('../utils/asyncHandler');
 const { marcarMantenimientoPorIncidencia } = require('../utils/equipoEstado');
+const { ESTADOS } = require('../config/estados');
 
 const reportar = asyncHandler(async (req, res) => {
-  const { equipo_id, sesion_id, tipo_falla, descripcion, foto_url } = req.body;
+  const { equipo_id, sesion_id, laboratorio_id, tipo_falla, descripcion, foto_url, estado, equipo_nombre } = req.body;
 
   if (!tipo_falla || !descripcion) {
     return res.status(400).json({ mensaje: 'tipo_falla y descripcion son requeridos' });
   }
 
+  let equipo = null;
   if (equipo_id) {
-    const equipo = await Equipo.findByPk(equipo_id);
+    equipo = await Equipo.findByPk(equipo_id);
     if (!equipo) return res.status(400).json({ mensaje: 'Equipo no válido' });
   }
 
@@ -23,10 +25,14 @@ const reportar = asyncHandler(async (req, res) => {
     equipo_id: equipo_id || null,
     usuario_id: req.usuario.id,
     sesion_id: sesion_id || null,
+    laboratorio_id: laboratorio_id || equipo?.laboratorio_id || null,
     tipo_falla,
     descripcion,
     foto_url: foto_url || null,
     fecha: new Date(),
+    estado: estado || ESTADOS.INCIDENCIA.REPORTADA,
+    equipo_nombre: equipo_nombre || equipo?.nombre || null,
+    tiene_evidencia: Boolean(foto_url),
   });
 
   if (equipo_id) {
@@ -38,6 +44,7 @@ const reportar = asyncHandler(async (req, res) => {
       { model: Equipo, as: 'equipo' },
       { model: Usuario, as: 'usuario', attributes: ['id', 'nombre'] },
       { model: Sesion, as: 'sesion' },
+      { model: Laboratorio, as: 'laboratorio' },
     ],
   });
 
@@ -52,26 +59,20 @@ const reportar = asyncHandler(async (req, res) => {
 const listar = asyncHandler(async (req, res) => {
   const { laboratorio_id, equipo_id } = req.query;
 
-  const include = [
-    { model: Equipo, as: 'equipo', include: [{ model: Laboratorio, as: 'laboratorio' }] },
-    { model: Usuario, as: 'usuario', attributes: ['id', 'nombre', 'email'] },
-    { model: Sesion, as: 'sesion' },
-  ];
-
   const where = {};
   if (equipo_id) where.equipo_id = equipo_id;
+  if (laboratorio_id) where.laboratorio_id = laboratorio_id;
 
-  let incidencias = await Incidencia.findAll({
+  const incidencias = await Incidencia.findAll({
     where,
-    include,
+    include: [
+      { model: Equipo, as: 'equipo', include: [{ model: Laboratorio, as: 'laboratorio' }] },
+      { model: Usuario, as: 'usuario', attributes: ['id', 'nombre', 'email'] },
+      { model: Sesion, as: 'sesion' },
+      { model: Laboratorio, as: 'laboratorio' },
+    ],
     order: [['fecha', 'DESC']],
   });
-
-  if (laboratorio_id) {
-    incidencias = incidencias.filter(
-      (i) => i.equipo && i.equipo.laboratorio_id === parseInt(laboratorio_id, 10)
-    );
-  }
 
   res.json({ total: incidencias.length, incidencias });
 });

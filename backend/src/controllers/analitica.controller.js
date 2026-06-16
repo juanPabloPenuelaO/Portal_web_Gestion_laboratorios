@@ -19,6 +19,8 @@ const {
   UMBRAL_SUBUTILIZACION_DEFAULT,
   UMBRAL_INCIDENCIAS_ALTA,
 } = require('../utils/analiticaHelpers');
+const { resumenPracticas, agruparPracticas } = require('../utils/practicasHelpers');
+const { ESTADOS, esEstado } = require('../config/estados');
 
 const validarPeriodo = (fecha_inicio, fecha_fin, res) => {
   if (!fecha_inicio || !fecha_fin) {
@@ -34,7 +36,7 @@ const ocupacion = asyncHandler(async (req, res) => {
   if (!validarPeriodo(fecha_inicio, fecha_fin, res)) return;
 
   const horasDisponibles = horasDisponiblesPeriodo(fecha_inicio, fecha_fin);
-  const laboratorios = await Laboratorio.findAll({ where: { estado: 'activo' } });
+  const laboratorios = await Laboratorio.findAll({ where: { estado: ESTADOS.LABORATORIO.DISPONIBLE } });
   const resultados = [];
 
   for (const lab of laboratorios) {
@@ -42,7 +44,7 @@ const ocupacion = asyncHandler(async (req, res) => {
       where: {
         laboratorio_id: lab.id,
         fecha: { [Op.between]: [fecha_inicio, fecha_fin] },
-        estado: { [Op.in]: ['abierta', 'cerrada'] },
+        estado: { [Op.in]: [ESTADOS.SESION.ACTIVA, ESTADOS.SESION.CERRADA] },
       },
     });
 
@@ -50,7 +52,7 @@ const ocupacion = asyncHandler(async (req, res) => {
       where: {
         laboratorio_id: lab.id,
         fecha: { [Op.between]: [fecha_inicio, fecha_fin] },
-        estado: 'aprobada',
+        estado: ESTADOS.RESERVA.APROBADA,
       },
     });
 
@@ -95,36 +97,38 @@ const cumplimientoPracticas = asyncHandler(async (req, res) => {
     ],
   });
 
-  const resumen = {
-    total: practicas.length,
-    planeadas: practicas.filter((p) => p.estado === 'planeada').length,
-    ejecutadas: practicas.filter((p) => p.estado === 'ejecutada').length,
-    canceladas: practicas.filter((p) => p.estado === 'cancelada').length,
-  };
-  resumen.porcentajeCumplimiento = calcularPorcentaje(resumen.ejecutadas, resumen.total);
+  const resumen = resumenPracticas(practicas);
+  resumen.canceladas = 0;
 
-  const agrupar = (campo, etiquetaFn) => {
-    const map = {};
-    practicas.forEach((p) => {
-      const key = campo === 'docente' ? p.docente_id : p[campo];
-      if (!map[key]) map[key] = { etiqueta: etiquetaFn(p), planeadas: 0, ejecutadas: 0, total: 0 };
-      map[key].total += 1;
-      if (p.estado === 'planeada') map[key].planeadas += 1;
-      if (p.estado === 'ejecutada') map[key].ejecutadas += 1;
-    });
-    return Object.values(map).map((g) => ({
-      ...g,
-      porcentaje: calcularPorcentaje(g.ejecutadas, g.total),
-    }));
-  };
+  const porAsignatura = agruparPracticas(practicas, 'asignatura', (p) => p.asignatura);
+  const porDocente = agruparPracticas(practicas, 'docente', (p) => p.docente?.nombre || `Docente #${p.docente_id}`);
+  const porPeriodo = agruparPracticas(practicas, 'periodo', (p) => p.periodo);
 
   res.json({
     rf: 'RF-36',
     periodo: periodo || 'todos',
     resumen,
-    porAsignatura: agrupar('asignatura', (p) => p.asignatura),
-    porDocente: agrupar('docente', (p) => p.docente?.nombre || `Docente #${p.docente_id}`),
-    porPeriodo: agrupar('periodo', (p) => p.periodo),
+    porAsignatura: porAsignatura.map((g) => ({
+      etiqueta: g.etiqueta,
+      planeadas: g.planeadas,
+      ejecutadas: g.ejecutadas,
+      total: g.total,
+      porcentaje: g.porcentajeEjecucion,
+    })),
+    porDocente: porDocente.map((g) => ({
+      etiqueta: g.etiqueta,
+      planeadas: g.planeadas,
+      ejecutadas: g.ejecutadas,
+      total: g.total,
+      porcentaje: g.porcentajeEjecucion,
+    })),
+    porPeriodo: porPeriodo.map((g) => ({
+      etiqueta: g.etiqueta,
+      planeadas: g.planeadas,
+      ejecutadas: g.ejecutadas,
+      total: g.total,
+      porcentaje: g.porcentajeEjecucion,
+    })),
   });
 });
 
@@ -138,7 +142,7 @@ const ausentismo = asyncHandler(async (req, res) => {
   const sesiones = await Sesion.findAll({
     where: {
       fecha: { [Op.between]: [fecha_inicio, fecha_fin] },
-      estado: 'cerrada',
+      estado: ESTADOS.SESION.CERRADA,
     },
     include: [
       { model: Asistencia, as: 'asistencias' },
@@ -150,7 +154,7 @@ const ausentismo = asyncHandler(async (req, res) => {
   const reservasPeriodo = await Reserva.findAll({
     where: {
       fecha: { [Op.between]: [fecha_inicio, fecha_fin] },
-      estado: { [Op.in]: ['aprobada', 'cancelada'] },
+      estado: { [Op.in]: [ESTADOS.RESERVA.APROBADA, ESTADOS.RESERVA.CANCELADA] },
     },
   });
 
@@ -228,8 +232,8 @@ const inventarioCritico = asyncHandler(async (req, res) => {
       let criticidad = 'baja';
       let motivo = [];
 
-      if (e.estado === 'baja') { criticidad = 'alta'; motivo.push('Fuera de servicio'); }
-      if (e.estado === 'mantenimiento') { criticidad = 'media'; motivo.push('En reparación'); }
+      if (esEstado(e.estado, ESTADOS.EQUIPO.BAJA)) { criticidad = 'alta'; motivo.push('Fuera de servicio'); }
+      if (esEstado(e.estado, ESTADOS.EQUIPO.EN_MANTENIMIENTO)) { criticidad = 'media'; motivo.push('En reparación'); }
       if (incidencias >= UMBRAL_INCIDENCIAS_ALTA) {
         criticidad = criticidad === 'alta' ? 'alta' : 'media';
         motivo.push(`Alta rotación de fallas (${incidencias})`);
@@ -270,15 +274,15 @@ const subutilizados = asyncHandler(async (req, res) => {
 
   const umbralPct = parseInt(umbral, 10) || UMBRAL_SUBUTILIZACION_DEFAULT;
   const horasDisponibles = horasDisponiblesPeriodo(fecha_inicio, fecha_fin);
-  const laboratorios = await Laboratorio.findAll({ where: { estado: 'activo' } });
+  const laboratorios = await Laboratorio.findAll({ where: { estado: ESTADOS.LABORATORIO.DISPONIBLE } });
   const resultados = [];
 
   for (const lab of laboratorios) {
     const sesiones = await Sesion.count({
-      where: { laboratorio_id: lab.id, fecha: { [Op.between]: [fecha_inicio, fecha_fin] }, estado: { [Op.in]: ['abierta', 'cerrada'] } },
+      where: { laboratorio_id: lab.id, fecha: { [Op.between]: [fecha_inicio, fecha_fin] }, estado: { [Op.in]: [ESTADOS.SESION.ACTIVA, ESTADOS.SESION.CERRADA] } },
     });
     const reservas = await Reserva.count({
-      where: { laboratorio_id: lab.id, fecha: { [Op.between]: [fecha_inicio, fecha_fin] }, estado: 'aprobada' },
+      where: { laboratorio_id: lab.id, fecha: { [Op.between]: [fecha_inicio, fecha_fin] }, estado: ESTADOS.RESERVA.APROBADA },
     });
     const horasOcupadas = (sesiones + reservas) * 2;
     const tasa = calcularPorcentaje(horasOcupadas, horasDisponibles);
@@ -301,7 +305,7 @@ const subutilizados = asyncHandler(async (req, res) => {
 // RF-40: Patrones de cancelación de reservas
 const patronesCancelacion = asyncHandler(async (req, res) => {
   const { fecha_inicio, fecha_fin } = req.query;
-  const where = { estado: 'cancelada' };
+  const where = { estado: ESTADOS.RESERVA.CANCELADA };
   if (fecha_inicio && fecha_fin) where.fecha = { [Op.between]: [fecha_inicio, fecha_fin] };
 
   const canceladas = await Reserva.findAll({
@@ -380,11 +384,11 @@ const comparativoCarreras = asyncHandler(async (req, res) => {
     if (!porAsignatura[p.asignatura]) {
       porAsignatura[p.asignatura] = { asignatura: p.asignatura, planeadas: 0, ejecutadas: 0 };
     }
-    if (p.estado === 'planeada') porAsignatura[p.asignatura].planeadas += 1;
-    if (p.estado === 'ejecutada') porAsignatura[p.asignatura].ejecutadas += 1;
+    porAsignatura[p.asignatura].planeadas += p.total_planeadas || 0;
+    porAsignatura[p.asignatura].ejecutadas += p.total_ejecutadas || 0;
   });
 
-  const whereReserva = { estado: 'aprobada' };
+  const whereReserva = { estado: ESTADOS.RESERVA.APROBADA };
   if (fecha_inicio && fecha_fin) whereReserva.fecha = { [Op.between]: [fecha_inicio, fecha_fin] };
 
   const reservas = await Reserva.findAll({ where: whereReserva });
@@ -415,14 +419,14 @@ const indicadoresDocente = asyncHandler(async (req, res) => {
   const { periodo, fecha_inicio, fecha_fin } = req.query;
 
   const docentes = await Usuario.findAll({
-    include: [{ model: Rol, as: 'rol', where: { nombre: 'docente' } }],
+    include: [{ model: Rol, as: 'rol', where: { nombre: { [Op.iLike]: 'docente' } } }],
     attributes: ['id', 'nombre', 'email'],
   });
 
   const wherePractica = {};
   if (periodo) wherePractica.periodo = periodo;
 
-  const whereSesion = { estado: 'cerrada' };
+  const whereSesion = { estado: ESTADOS.SESION.CERRADA };
   if (fecha_inicio && fecha_fin) whereSesion.fecha = { [Op.between]: [fecha_inicio, fecha_fin] };
 
   const indicadores = [];
@@ -443,15 +447,15 @@ const indicadoresDocente = asyncHandler(async (req, res) => {
       totalCapacidad += cap;
     });
 
+    const totalPlaneadas = practicas.reduce((acc, p) => acc + (p.total_planeadas || 0), 0);
+    const totalEjecutadas = practicas.reduce((acc, p) => acc + (p.total_ejecutadas || 0), 0);
+
     indicadores.push({
       docente_id: docente.id,
       docente: docente.nombre,
-      practicasEjecutadas: practicas.filter((p) => p.estado === 'ejecutada').length,
-      practicasPlaneadas: practicas.filter((p) => p.estado === 'planeada').length,
-      cumplimientoPracticas: calcularPorcentaje(
-        practicas.filter((p) => p.estado === 'ejecutada').length,
-        practicas.length
-      ),
+      practicasEjecutadas: totalEjecutadas,
+      practicasPlaneadas: totalPlaneadas,
+      cumplimientoPracticas: calcularPorcentaje(totalEjecutadas, totalPlaneadas),
       tasaAsistenciaPromedio: calcularPorcentaje(totalAsistencia, totalCapacidad),
       incidenciasReportadas: incidencias,
       sesionesImpartidas: sesiones.length,

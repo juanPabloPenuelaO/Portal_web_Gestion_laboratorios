@@ -1,4 +1,6 @@
 // ─── Utilidades UI ───────────────────────────────────────────
+const normEstado = (e) => (e || '').toString().toLowerCase();
+
 const UI = {
   showAlert(container, mensaje, tipo = 'error') {
     container.innerHTML = `<div class="alert alert-${tipo}">${mensaje}</div>`;
@@ -6,18 +8,29 @@ const UI = {
   },
 
   badgeEstado(estado) {
+    const key = normEstado(estado);
     const map = {
       activo: 'badge-activo',
+      disponible: 'badge-activo',
       inactivo: 'badge-inactivo',
+      ocupado: 'badge-inactivo',
       mantenimiento: 'badge-mantenimiento',
+      en_mantenimiento: 'badge-mantenimiento',
       pendiente: 'badge-pendiente',
       aprobada: 'badge-aprobada',
       rechazada: 'badge-rechazada',
       cancelada: 'badge-cancelada',
       planeada: 'badge-pendiente',
+      parcial: 'badge-mantenimiento',
       ejecutada: 'badge-aprobada',
+      activa: 'badge-aprobada',
+      cerrada: 'badge-inactivo',
+      reportada: 'badge-pendiente',
+      prestado: 'badge-pendiente',
+      devuelto: 'badge-aprobada',
     };
-    return `<span class="badge ${map[estado] || ''}">${estado}</span>`;
+    const etiqueta = key.replace(/_/g, ' ');
+    return `<span class="badge ${map[key] || ''}">${etiqueta}</span>`;
   },
 
   openModal(titulo, bodyHtml, footerHtml) {
@@ -134,7 +147,7 @@ async function cargarTipos(puedeEditar) {
             <td>${UI.badgeEstado(t.estado)}</td>
             ${puedeEditar ? `<td class="actions">
               <button class="btn btn-secondary btn-sm" onclick="editarTipo(${t.id})">Editar</button>
-              ${t.estado === 'activo' ? `<button class="btn btn-danger btn-sm" onclick="desactivarTipo(${t.id})">Desactivar</button>` : ''}
+              ${normEstado(t.estado) === 'activo' ? `<button class="btn btn-danger btn-sm" onclick="desactivarTipo(${t.id})">Desactivar</button>` : ''}
             </td>` : ''}
           </tr>`).join('')}
         </tbody>
@@ -155,8 +168,8 @@ function abrirFormTipo(tipo = null) {
     `<div class="form-group"><label>Nombre</label>
      <input id="fTipoNombre" value="${tipo?.nombre || ''}" placeholder="Ej: software, hardware, electrónica"></div>
      ${tipo ? `<div class="form-group"><label>Estado</label>
-     <select id="fTipoEstado"><option value="activo" ${tipo.estado==='activo'?'selected':''}>Activo</option>
-     <option value="inactivo" ${tipo.estado==='inactivo'?'selected':''}>Inactivo</option></select></div>` : ''}`,
+     <select id="fTipoEstado"><option value="activo" ${normEstado(tipo.estado)==='activo'?'selected':''}>Activo</option>
+     <option value="inactivo" ${normEstado(tipo.estado)==='inactivo'?'selected':''}>Inactivo</option></select></div>` : ''}`,
     `<button class="btn btn-secondary" onclick="UI.closeModal()">Cancelar</button>
      <button class="btn btn-primary" id="btnGuardarTipo">Guardar</button>`
   );
@@ -270,15 +283,16 @@ async function abrirFormLab(lab = null) {
     lab ? 'Editar laboratorio' : 'Nuevo laboratorio',
     `<div class="form-group"><label>Nombre</label><input id="fLabNombre" value="${lab?.nombre || ''}"></div>
      <div class="form-group"><label>Ubicación</label><input id="fLabUbicacion" value="${lab?.ubicacion || ''}"></div>
+     <div class="form-group"><label>Equipamiento</label><textarea id="fLabEquipamiento" rows="3" placeholder="Descripción del equipamiento">${lab?.equipamiento || ''}</textarea></div>
      <div class="form-row">
        <div class="form-group"><label>Capacidad</label><input type="number" id="fLabCapacidad" value="${lab?.capacidad || 0}" min="0"></div>
        <div class="form-group"><label>Tipo</label><select id="fLabTipo"><option value="">Seleccionar...</option>${tiposOptions}</select></div>
      </div>
      ${lab ? `<div class="form-group"><label>Estado</label>
        <select id="fLabEstado">
-         <option value="activo" ${lab.estado==='activo'?'selected':''}>Activo</option>
-         <option value="inactivo" ${lab.estado==='inactivo'?'selected':''}>Inactivo</option>
-         <option value="mantenimiento" ${lab.estado==='mantenimiento'?'selected':''}>Mantenimiento</option>
+         <option value="activo" ${normEstado(lab.estado)==='disponible'?'selected':''}>Disponible</option>
+         <option value="inactivo" ${normEstado(lab.estado)==='en_mantenimiento'?'selected':''}>En mantenimiento</option>
+         <option value="ocupado" ${normEstado(lab.estado)==='ocupado'?'selected':''}>Ocupado</option>
        </select></div>
        ${lab.equipos?.length ? `<div class="form-group"><label>Equipamiento (${lab.equipos.length})</label>
          <ul style="font-size:0.875rem;color:var(--muted);padding-left:1.25rem">
@@ -294,6 +308,7 @@ async function abrirFormLab(lab = null) {
       ubicacion: document.getElementById('fLabUbicacion').value.trim(),
       capacidad: parseInt(document.getElementById('fLabCapacidad').value, 10) || 0,
       tipo_id: parseInt(document.getElementById('fLabTipo').value, 10),
+      equipamiento: document.getElementById('fLabEquipamiento').value.trim() || null,
     };
     const estado = document.getElementById('fLabEstado')?.value;
     if (estado) body.estado = estado;
@@ -401,7 +416,7 @@ async function cargarUsuarios(puedeEditar) {
             <td>${UI.badgeEstado(u.estado)}</td>
             ${puedeEditar ? `<td class="actions">
               <button class="btn btn-secondary btn-sm" onclick="editarUsuario(${u.id})">Editar</button>
-              ${u.estado === 'activo' ? `<button class="btn btn-danger btn-sm" onclick="desactivarUsuario(${u.id})">Desactivar</button>` : ''}
+              ${normEstado(u.estado) === 'activo' ? `<button class="btn btn-danger btn-sm" onclick="desactivarUsuario(${u.id})">Desactivar</button>` : ''}
             </td>` : ''}
           </tr>`).join('')}
         </tbody>
@@ -508,16 +523,16 @@ async function renderInicio() {
   const hace7 = ahora - 7 * 86400000;
   const en7 = ahora + 7 * 86400000;
 
-  const labsActivos = laboratorios.filter((l) => l.estado === 'activo').length;
-  const labsMantenimiento = laboratorios.filter((l) => l.estado === 'mantenimiento');
+  const labsActivos = laboratorios.filter((l) => normEstado(l.estado) === 'disponible').length;
+  const labsMantenimiento = laboratorios.filter((l) => normEstado(l.estado) === 'en_mantenimiento');
 
-  const activas = reservas.filter((r) => r.estado === 'pendiente' || r.estado === 'aprobada');
+  const activas = reservas.filter((r) => normEstado(r.estado) === 'pendiente' || normEstado(r.estado) === 'aprobada');
   const reservasSemana = activas.filter((r) => {
     const f = new Date(r.fecha).getTime();
     return f >= hace7 && f <= en7;
   });
-  const pendientes = reservas.filter((r) => r.estado === 'pendiente');
-  const aprobadas = reservas.filter((r) => r.estado === 'aprobada');
+  const pendientes = reservas.filter((r) => normEstado(r.estado) === 'pendiente');
+  const aprobadas = reservas.filter((r) => normEstado(r.estado) === 'aprobada');
   const baseEstado = reservas.length || 1;
   const pctAprob = Math.round((aprobadas.length / baseEstado) * 100);
 
@@ -894,7 +909,7 @@ function renderTablaReservas(filtradas) {
       </tr></thead>
       <tbody>${items.map((r, i) => {
         const acciones = [`<button class="icon-btn icon-view" title="Ver detalle" onclick="verReserva(${r.id})">${ICO_EYE}</button>`];
-        if (puedeAprobar && r.estado === 'pendiente') {
+        if (puedeAprobar && normEstado(r.estado) === 'pendiente') {
           acciones.push(`<button class="icon-btn icon-ok" title="Aprobar" onclick="aprobarReserva(${r.id})">${ICO_CHECK}</button>`);
           acciones.push(`<button class="icon-btn icon-no" title="Rechazar" onclick="rechazarReserva(${r.id})">${ICO_X}</button>`);
         }
@@ -935,7 +950,7 @@ function renderCalendarioReservas(filtradas) {
 
   container.innerHTML = `<div class="calendar-grid">${filtradas.map((r) => {
     const esPropia = r.docente_id === session.id;
-    const puedeCancelarEsta = puedeCancelar && (r.estado === 'aprobada' || r.estado === 'pendiente')
+    const puedeCancelarEsta = puedeCancelar && (normEstado(r.estado) === 'aprobada' || normEstado(r.estado) === 'pendiente')
       && (esPropia || puedeAprobar || session.rol === 'administrador');
 
     return `<div class="calendar-item">
@@ -947,7 +962,7 @@ function renderCalendarioReservas(filtradas) {
         ${r.observaciones ? `<p style="margin-top:0.5rem;font-style:italic">Obs: ${r.observaciones}</p>` : ''}
       </div>
       <div class="actions" style="flex-shrink:0;flex-direction:column">
-        ${puedeAprobar && r.estado === 'pendiente' ? `
+        ${puedeAprobar && normEstado(r.estado) === 'pendiente' ? `
           <button class="btn btn-primary btn-sm" onclick="aprobarReserva(${r.id})">Aprobar</button>
           <button class="btn btn-danger btn-sm" onclick="rechazarReserva(${r.id})">Rechazar</button>` : ''}
         ${puedeCancelarEsta ? `
@@ -964,11 +979,11 @@ function verReserva(id) {
   const puedeAprobar = Auth.tienePermiso('reservas.aprobar');
   const puedeCancelar = Auth.tienePermiso('reservas.cancelar');
   const esPropia = r.docente_id === session.id;
-  const puedeCancelarEsta = puedeCancelar && (r.estado === 'aprobada' || r.estado === 'pendiente')
+  const puedeCancelarEsta = puedeCancelar && (normEstado(r.estado) === 'aprobada' || normEstado(r.estado) === 'pendiente')
     && (esPropia || puedeAprobar || session.rol === 'administrador');
 
   const footer = ['<button class="btn btn-secondary" onclick="UI.closeModal()">Cerrar</button>'];
-  if (puedeAprobar && r.estado === 'pendiente') {
+  if (puedeAprobar && normEstado(r.estado) === 'pendiente') {
     footer.push(`<button class="btn btn-danger" onclick="rechazarReserva(${r.id})">Rechazar</button>`);
     footer.push(`<button class="btn btn-primary" onclick="aprobarReserva(${r.id})">Aprobar</button>`);
   } else if (puedeCancelarEsta) {
@@ -1368,9 +1383,10 @@ async function renderInventario() {
             <label>Categoría</label>
             <select id="invCategoria">
               <option value="">Todas</option>
-              <option value="equipo">Equipo</option>
-              <option value="licencia">Licencia software</option>
-              <option value="insumo">Insumo</option>
+              <option value="hardware">Hardware</option>
+              <option value="software">Software</option>
+              <option value="instrumento">Instrumento</option>
+              <option value="otro">Otro</option>
             </select>
           </div>
           <div class="form-group">
@@ -1416,9 +1432,13 @@ async function renderInventario() {
 }
 
 const ETIQUETAS_CATEGORIA = {
-  equipo: 'Equipo',
-  licencia: 'Licencia software',
-  insumo: 'Insumo',
+  hardware: 'Hardware',
+  software: 'Software',
+  instrumento: 'Instrumento',
+  otro: 'Otro',
+  equipo: 'Hardware',
+  licencia: 'Software',
+  insumo: 'Otro',
 };
 
 async function cargarInventario() {
@@ -1446,7 +1466,7 @@ async function cargarInventario() {
         <div class="stat-card"><div class="label">En mantenimiento</div><div class="value" style="color:var(--danger)">${resumen.porEstado.mantenimiento}</div></div>
       </div>
       <p style="font-size:0.875rem;color:var(--muted);margin-bottom:1rem">
-        ${laboratorio.nombre} · ${resumen.porCategoria.equipo} equipos, ${resumen.porCategoria.licencia} licencias, ${resumen.porCategoria.insumo} insumos
+        ${laboratorio.nombre} · ${resumen.porCategoria.hardware} hardware, ${resumen.porCategoria.software} software, ${resumen.porCategoria.instrumento} instrumentos, ${resumen.porCategoria.otro} otros
       </p>`;
 
     const container = document.getElementById('invContent');
@@ -1469,7 +1489,7 @@ async function cargarInventario() {
             <td>${e.numero_serie || '—'}</td>
             <td>${UI.badgeEstado(e.estado)}</td>
             ${puedeGestionar ? `<td class="actions">
-              ${e.estado === 'mantenimiento' ? `<button class="btn btn-primary btn-sm" onclick="repararRecurso(${e.id})">Reparado</button>` : ''}
+              ${normEstado(e.estado) === 'en_mantenimiento' ? `<button class="btn btn-primary btn-sm" onclick="repararRecurso(${e.id})">Reparado</button>` : ''}
               ${e.estado !== 'baja' ? `<button class="btn btn-secondary btn-sm" onclick="cambiarEstadoRecurso(${e.id}, '${e.estado}')">Estado</button>` : ''}
             </td>` : ''}
           </tr>`).join('')}
@@ -1488,9 +1508,10 @@ async function abrirFormRecurso() {
     'Registrar recurso en inventario',
     `<div class="form-group"><label>Categoría</label>
      <select id="fInvCat">
-       <option value="equipo">Equipo</option>
-       <option value="licencia">Licencia de software</option>
-       <option value="insumo">Insumo</option>
+       <option value="hardware">Hardware</option>
+       <option value="software">Software</option>
+       <option value="instrumento">Instrumento</option>
+       <option value="otro">Otro</option>
      </select></div>
      <div class="form-group"><label>Nombre</label><input id="fInvNombre" placeholder="Ej: Multímetro Fluke / MATLAB License"></div>
      <div class="form-row">
@@ -1638,7 +1659,7 @@ async function renderPracticas() {
 async function cargarListaPracticas(puedeEjecutar) {
   try {
     const { practicas } = await api.get('/practicas/seguimiento');
-    const pendientes = practicas.filter((p) => p.estado === 'planeada');
+    const pendientes = practicas.filter((p) => (p.total_planeadas || 0) > (p.total_ejecutadas || 0));
     const container = document.getElementById('practicasLista');
 
     if (!pendientes.length) {
@@ -1650,7 +1671,7 @@ async function cargarListaPracticas(puedeEjecutar) {
       <div class="table-scroll"><table>
         <thead><tr>
           <th>Asignatura</th><th>Periodo</th><th>Grupo</th><th>Laboratorio</th>
-          <th>Fecha planeada</th><th>Estado</th>${puedeEjecutar ? '<th>Acción</th>' : ''}
+          <th>Planeadas</th><th>Ejecutadas</th><th>Pendientes</th>${puedeEjecutar ? '<th>Acción</th>' : ''}
         </tr></thead>
         <tbody>${pendientes.map((p) => `
           <tr>
@@ -1658,9 +1679,10 @@ async function cargarListaPracticas(puedeEjecutar) {
             <td>${p.periodo}</td>
             <td>${p.grupo}</td>
             <td>${p.laboratorio?.nombre || '—'}</td>
-            <td>${p.fecha_planeada}</td>
-            <td>${UI.badgeEstado(p.estado)}</td>
-            ${puedeEjecutar ? `<td><button class="btn btn-primary btn-sm" onclick="ejecutarPractica(${p.id})">Marcar ejecutada</button></td>` : ''}
+            <td>${p.total_planeadas || 0}</td>
+            <td>${p.total_ejecutadas || 0}</td>
+            <td>${Math.max(0, (p.total_planeadas || 0) - (p.total_ejecutadas || 0))}</td>
+            ${puedeEjecutar ? `<td><button class="btn btn-primary btn-sm" onclick="ejecutarPractica(${p.id})">Registrar ejecución</button></td>` : ''}
           </tr>`).join('')}
         </tbody>
       </table></div>`;
@@ -1686,7 +1708,7 @@ async function cargarSeguimientoPracticas() {
     document.getElementById('practicasResumen').innerHTML = `
       <div class="stats-grid" style="margin-bottom:1.5rem">
         <div class="stat-card"><div class="label">Total prácticas</div><div class="value">${resumen.total}</div></div>
-        <div class="stat-card"><div class="label">Planeadas</div><div class="value" style="color:var(--warning)">${resumen.planeada}</div></div>
+        <div class="stat-card"><div class="label">Pendientes</div><div class="value" style="color:var(--warning)">${resumen.pendiente ?? resumen.planeada}</div></div>
         <div class="stat-card"><div class="label">Ejecutadas</div><div class="value" style="color:var(--success)">${resumen.ejecutada}</div></div>
         <div class="stat-card"><div class="label">% Cumplimiento</div><div class="value">${resumen.porcentajeCumplimiento}%</div></div>
       </div>`;
@@ -1726,7 +1748,7 @@ async function cargarSeguimientoPracticas() {
       <div class="table-scroll"><table>
         <thead><tr>
           <th>Asignatura</th><th>Periodo</th><th>Grupo</th><th>Docente</th><th>Laboratorio</th>
-          <th>F. planeada</th><th>F. ejecutada</th><th>Estado</th>
+          <th>Planeadas</th><th>Ejecutadas</th><th>Pendientes</th><th>Estado</th>
         </tr></thead>
         <tbody>${practicas.map((p) => `
           <tr>
@@ -1735,8 +1757,9 @@ async function cargarSeguimientoPracticas() {
             <td>${p.grupo}</td>
             <td>${p.docente?.nombre || '—'}</td>
             <td>${p.laboratorio?.nombre || '—'}</td>
-            <td>${p.fecha_planeada}</td>
-            <td>${p.fecha_ejecutada || '—'}</td>
+            <td>${p.total_planeadas || 0}</td>
+            <td>${p.total_ejecutadas || 0}</td>
+            <td>${p.pendientes ?? Math.max(0, (p.total_planeadas || 0) - (p.total_ejecutadas || 0))}</td>
             <td>${UI.badgeEstado(p.estado)}</td>
           </tr>`).join('')}
         </tbody>
@@ -1763,8 +1786,8 @@ async function abrirFormPractica() {
      <div class="form-row">
        <div class="form-group"><label>Laboratorio</label>
          <select id="fPracLab"><option value="">Seleccionar...</option>${labsOptions}</select></div>
-       <div class="form-group"><label>Fecha planeada</label>
-         <input type="date" id="fPracFecha"></div>
+       <div class="form-group"><label>Cantidad planeada</label>
+         <input type="number" id="fPracCantidad" min="1" value="1"></div>
      </div>`,
     `<button class="btn btn-secondary" onclick="UI.closeModal()">Cancelar</button>
      <button class="btn btn-primary" id="btnGuardarPractica">Registrar</button>`
@@ -1776,10 +1799,10 @@ async function abrirFormPractica() {
       periodo: document.getElementById('fPracPeriodo').value.trim(),
       grupo: document.getElementById('fPracGrupo').value.trim(),
       laboratorio_id: parseInt(document.getElementById('fPracLab').value, 10),
-      fecha_planeada: document.getElementById('fPracFecha').value,
+      total_planeadas: parseInt(document.getElementById('fPracCantidad').value, 10) || 1,
     };
 
-    if (!body.asignatura || !body.periodo || !body.grupo || !body.laboratorio_id || !body.fecha_planeada) {
+    if (!body.asignatura || !body.periodo || !body.grupo || !body.laboratorio_id || body.total_planeadas < 1) {
       alert('Complete todos los campos requeridos');
       return;
     }
@@ -1798,18 +1821,15 @@ async function abrirFormPractica() {
 
 async function ejecutarPractica(id) {
   UI.openModal(
-    'Marcar práctica como ejecutada',
-    `<div class="form-group"><label>Fecha de ejecución</label>
-     <input type="date" id="fPracFechaEjec" value="${new Date().toISOString().slice(0, 10)}"></div>`,
+    'Registrar ejecución de práctica',
+    `<p style="margin-bottom:1rem;color:var(--muted)">Se registrará 1 práctica ejecutada.</p>`,
     `<button class="btn btn-secondary" onclick="UI.closeModal()">Cancelar</button>
      <button class="btn btn-primary" id="btnConfirmEjecutar">Confirmar</button>`
   );
 
   document.getElementById('btnConfirmEjecutar').addEventListener('click', async () => {
     try {
-      await api.patch(`/practicas/${id}/ejecutar`, {
-        fecha_ejecutada: document.getElementById('fPracFechaEjec').value,
-      });
+      await api.patch(`/practicas/${id}/ejecutar`, { cantidad: 1 });
       UI.closeModal();
       UI.showAlert(document.getElementById('practicasAlert'), 'Práctica marcada como ejecutada', 'success');
       await cargarListaPracticas(true);

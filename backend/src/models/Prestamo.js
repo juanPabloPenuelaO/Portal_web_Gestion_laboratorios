@@ -31,14 +31,14 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
       },
       estado: {
-        type: DataTypes.ENUM('activo', 'devuelto', 'vencido'),
+        type: DataTypes.STRING(20),
         allowNull: false,
         defaultValue: 'activo',
       },
     },
     {
       tableName: 'prestamos',
-      underscored: true,
+      timestamps: false,
     }
   );
 

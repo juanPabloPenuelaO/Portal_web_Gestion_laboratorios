@@ -1,6 +1,7 @@
 const { Op } = require('sequelize');
 const { Incidencia, Equipo, Usuario, Sesion, Laboratorio, Reserva } = require('../models');
 const asyncHandler = require('../utils/asyncHandler');
+const { ESTADOS } = require('../config/estados');
 
 // RF-08: Historial de incidencias por laboratorio
 const historialIncidencias = asyncHandler(async (req, res) => {
@@ -13,7 +14,7 @@ const historialIncidencias = asyncHandler(async (req, res) => {
   const laboratorio = await Laboratorio.findByPk(laboratorio_id);
   if (!laboratorio) return res.status(404).json({ mensaje: 'Laboratorio no encontrado' });
 
-  const whereIncidencia = {};
+  const whereIncidencia = { laboratorio_id };
   if (fecha_inicio && fecha_fin) {
     whereIncidencia.fecha = { [Op.between]: [fecha_inicio, fecha_fin] };
   }
@@ -21,34 +22,19 @@ const historialIncidencias = asyncHandler(async (req, res) => {
   const incidencias = await Incidencia.findAll({
     where: whereIncidencia,
     include: [
-      {
-        model: Equipo,
-        as: 'equipo',
-        required: false,
-        where: { laboratorio_id },
-        include: [{ model: Laboratorio, as: 'laboratorio' }],
-      },
+      { model: Equipo, as: 'equipo', required: false },
       { model: Usuario, as: 'usuario', attributes: ['id', 'nombre', 'email'] },
-      {
-        model: Sesion,
-        as: 'sesion',
-        required: false,
-        where: { laboratorio_id },
-      },
+      { model: Sesion, as: 'sesion', required: false },
+      { model: Laboratorio, as: 'laboratorio' },
     ],
     order: [['fecha', 'DESC']],
   });
 
-  const filtradas = incidencias.filter(
-    (i) => (i.equipo && i.equipo.laboratorio_id === parseInt(laboratorio_id, 10))
-      || (i.sesion && i.sesion.laboratorio_id === parseInt(laboratorio_id, 10))
-  );
-
   res.json({
     rf: 'RF-08',
     laboratorio: { id: laboratorio.id, nombre: laboratorio.nombre },
-    total: filtradas.length,
-    incidencias: filtradas,
+    total: incidencias.length,
+    incidencias,
   });
 });
 
@@ -57,8 +43,8 @@ const agenda = asyncHandler(async (req, res) => {
   const { laboratorio_id, fecha_inicio, fecha_fin } = req.query;
   const rol = req.usuario.rol;
 
-  const reservaWhere = { estado: { [Op.in]: ['pendiente', 'aprobada'] } };
-  const sesionWhere = { estado: { [Op.in]: ['abierta', 'cerrada'] } };
+  const reservaWhere = { estado: { [Op.in]: [ESTADOS.RESERVA.PENDIENTE, ESTADOS.RESERVA.APROBADA] } };
+  const sesionWhere = { estado: { [Op.in]: [ESTADOS.SESION.ACTIVA, ESTADOS.SESION.CERRADA] } };
 
   if (laboratorio_id) {
     reservaWhere.laboratorio_id = laboratorio_id;
@@ -76,7 +62,7 @@ const agenda = asyncHandler(async (req, res) => {
   }
 
   if (rol === 'estudiante') {
-    reservaWhere.estado = 'aprobada';
+    reservaWhere.estado = ESTADOS.RESERVA.APROBADA;
   }
 
   const [reservas, sesiones] = await Promise.all([

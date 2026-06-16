@@ -30,21 +30,26 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       estado: {
-        type: DataTypes.ENUM('activo', 'inactivo'),
+        type: DataTypes.STRING(20),
         allowNull: false,
-        defaultValue: 'activo',
+        defaultValue: 'ACTIVO',
       },
       fecha_creacion: {
         type: DataTypes.DATE,
-        allowNull: false,
-        defaultValue: DataTypes.NOW,
+        allowNull: true,
+      },
+      remember_token: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
       },
     },
     {
       tableName: 'usuarios',
-      underscored: true,
+      timestamps: true,
+      createdAt: 'created_at',
+      updatedAt: 'updated_at',
       defaultScope: {
-        attributes: { exclude: ['contrasena'] },
+        attributes: { exclude: ['contrasena', 'remember_token'] },
       },
       scopes: {
         withPassword: {
@@ -67,7 +72,12 @@ module.exports = (sequelize, DataTypes) => {
   });
 
   Usuario.prototype.validarContrasena = async function (contrasena) {
-    return bcrypt.compare(contrasena, this.contrasena);
+    let hash = this.contrasena;
+    // Hashes de Laravel / app móvil usan $2y$; bcryptjs requiere $2a$
+    if (hash?.startsWith('$2y$')) {
+      hash = `$2a$${hash.slice(4)}`;
+    }
+    return bcrypt.compare(contrasena, hash);
   };
 
   Usuario.associate = (models) => {
