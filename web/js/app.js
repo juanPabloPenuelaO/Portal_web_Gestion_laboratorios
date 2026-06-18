@@ -50,7 +50,7 @@ document.getElementById('modalOverlay').addEventListener('click', (e) => {
   if (e.target.id === 'modalOverlay') UI.closeModal();
 });
 
-// ─── Navegación por rol (RF-29) ──────────────────────────────
+// ─── Navegación por rol ──────────────────────────────
 function buildSidebar() {
   const nav = document.getElementById('sidebarNav');
   nav.innerHTML = '';
@@ -78,6 +78,7 @@ function buildSidebar() {
 
 function navigateTo(moduleId) {
   closeSidebarMobile();
+  detenerCapturaPBI();
   document.querySelectorAll('.nav-item').forEach((b) => b.classList.remove('active'));
   document.querySelector(`[data-module="${moduleId}"]`)?.classList.add('active');
 
@@ -101,7 +102,7 @@ function navigateTo(moduleId) {
   (loaders[moduleId] || renderInicio)();
 }
 
-// ─── RF-16: Tipos de laboratorio ─────────────────────────────
+// ─── Tipos de laboratorio ─────────────────────────────
 let _tiposCache = [];
 
 async function renderTiposLaboratorio() {
@@ -206,7 +207,7 @@ async function desactivarTipo(id) {
   }
 }
 
-// ─── RF-17: Laboratorios ─────────────────────────────────────
+// ─── Laboratorios ─────────────────────────────────────
 let _labsCache = [];
 
 async function renderLaboratorios() {
@@ -344,7 +345,7 @@ async function desactivarLab(id) {
   }
 }
 
-// ─── RF-18: Usuarios ─────────────────────────────────────────
+// ─── Usuarios ─────────────────────────────────────────
 let _usersCache = [];
 
 async function renderUsuarios() {
@@ -492,7 +493,7 @@ async function desactivarUsuario(id) {
   }
 }
 
-// ─── Módulos adicionales (vista básica RF-29) ────────────────
+// ─── Módulos adicionales ────────────────
 // ─── Dashboard (vista de inicio) ─────────────────────────────
 const DASH_ICONS = {
   flask: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/></svg>',
@@ -1132,7 +1133,7 @@ async function cancelarReserva(id, estado) {
   });
 }
 
-// ─── Notificaciones (RF-22) ──────────────────────────────────
+// ─── Notificaciones ──────────────────────────────────
 async function cargarNotificaciones() {
   try {
     const { notificaciones, noLeidas } = await api.get('/notificaciones?solo_no_leidas=false');
@@ -1181,6 +1182,51 @@ async function cargarNotificaciones() {
 async function renderAnalitica() {
   document.getElementById('contentArea').innerHTML = `
     <div id="anAlert"></div>
+    <section class="dashboard-section pbi-embed-section">
+      <div class="pbi-embed" id="pbiEmbed">
+        <div class="pbi-embed-chrome">
+          <div class="pbi-embed-brand">
+            <span class="pbi-embed-logo">PB</span>
+            <span class="pbi-embed-title">GILIH — Gestión Integral de Laboratorios de Ingeniería</span>
+          </div>
+          <span class="pbi-embed-meta">Informe analítico</span>
+          <div class="pbi-embed-chrome-actions">
+            <button type="button" class="pbi-embed-icon-btn" id="btnPbiMenu" aria-label="Opciones del informe" title="Opciones">⋯</button>
+            <div class="pbi-embed-menu hidden" id="pbiEmbedMenu">
+              <button type="button" id="btnCapturarPBI">Actualizar vista</button>
+              <button type="button" id="btnDetenerPBI" class="hidden">Cerrar informe</button>
+              <a href="${POWER_BI_REPORT_URL}" target="_blank" rel="noopener noreferrer">Abrir en Power BI</a>
+            </div>
+          </div>
+        </div>
+        <div class="pbi-embed-viewport" id="pbiCaptureWrap" title="Clic para cargar el informe">
+          <video id="pbiCapture" autoplay muted playsinline></video>
+          <div class="pbi-embed-preview" id="pbiCapturePlaceholder">
+            <div class="pbi-preview-left">
+              <h2>GILIH</h2>
+              <p class="pbi-preview-sub">Gestión Integral de Laboratorios de Ingeniería</p>
+              <p class="pbi-preview-desc">
+                Convierte los datos de asistencia, equipos e incidencias en información útil para la toma de decisiones.
+                Identifica tendencias y oportunidades de mejora en la operación de los laboratorios.
+              </p>
+            </div>
+            <div class="pbi-preview-right">
+              <p class="pbi-preview-views-title">Vistas disponibles</p>
+              <p class="pbi-preview-views-sub">Selecciona una sección para explorar los datos disponibles</p>
+              <div class="pbi-preview-tiles">
+                <span>Laboratorios</span>
+                <span>Préstamos</span>
+                <span>Incidencias</span>
+                <span>Prácticas</span>
+                <span>Reservaciones</span>
+                <span>Asistencias</span>
+              </div>
+            </div>
+          </div>
+          <span class="pbi-embed-hint">Clic para cargar informe</span>
+        </div>
+      </div>
+    </section>
     <div class="card" style="margin-bottom:1.5rem">
       <div class="card-body">
         <div class="filters-bar">
@@ -1200,6 +1246,74 @@ async function renderAnalitica() {
   document.getElementById('anHasta').value = hoy;
 
   document.getElementById('btnDashboard').addEventListener('click', cargarDashboard);
+  document.getElementById('btnCapturarPBI').addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.getElementById('pbiEmbedMenu')?.classList.add('hidden');
+    capturarPBI();
+  });
+  document.getElementById('btnDetenerPBI').addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.getElementById('pbiEmbedMenu')?.classList.add('hidden');
+    detenerCapturaPBI();
+  });
+  document.getElementById('btnPbiMenu')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.getElementById('pbiEmbedMenu')?.classList.toggle('hidden');
+  });
+  document.getElementById('pbiCaptureWrap')?.addEventListener('click', () => {
+    if (!pbiCaptureStream) capturarPBI();
+  });
+}
+
+let pbiCaptureStream = null;
+
+function actualizarUIPbiCapture(enVivo) {
+  document.getElementById('pbiEmbed')?.classList.toggle('is-live', enVivo);
+  document.getElementById('btnDetenerPBI')?.classList.toggle('hidden', !enVivo);
+}
+
+function detenerCapturaPBI() {
+  if (pbiCaptureStream) {
+    pbiCaptureStream.getTracks().forEach((track) => track.stop());
+    pbiCaptureStream = null;
+  }
+  const video = document.getElementById('pbiCapture');
+  if (video) video.srcObject = null;
+  actualizarUIPbiCapture(false);
+}
+
+async function capturarPBI() {
+  if (!navigator.mediaDevices?.getDisplayMedia) {
+    UI.showAlert(document.getElementById('anAlert'), 'Tu navegador no soporta captura de pantalla. Usa Chrome o Edge.', 'error');
+    return;
+  }
+
+  try {
+    detenerCapturaPBI();
+
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+      video: {
+        cursor: 'never',
+        displaySurface: 'window',
+      },
+      audio: false,
+      preferCurrentTab: false,
+    });
+
+    pbiCaptureStream = stream;
+    const video = document.getElementById('pbiCapture');
+    video.srcObject = stream;
+    actualizarUIPbiCapture(true);
+
+    stream.getVideoTracks()[0]?.addEventListener('ended', () => {
+      detenerCapturaPBI();
+    });
+  } catch (err) {
+    detenerCapturaPBI();
+    if (err.name !== 'NotAllowedError') {
+      UI.showAlert(document.getElementById('anAlert'), err.message || 'No se pudo iniciar la captura', 'error');
+    }
+  }
 }
 
 function tablaHTML(headers, rows) {
@@ -1250,109 +1364,100 @@ async function cargarDashboard() {
     const d = await api.get(url);
 
     document.getElementById('dashboardContent').innerHTML = `
-      <!-- RF-35 -->
       <div class="dashboard-section">
-        <h3>RF-35 · Tasa de ocupación por laboratorio</h3>
+        <h3>Tasa de ocupación por laboratorio</h3>
         ${tablaHTML(
           ['Laboratorio', 'Capacidad', 'H. disponibles', 'H. ocupadas', 'Tasa %'],
-          (d.rf35_ocupacion?.resultados || []).map((r) =>
+          (d.ocupacion?.resultados || []).map((r) =>
             `<tr><td>${r.laboratorio}</td><td>${r.capacidad}</td><td>${r.horasDisponibles}</td><td>${r.horasOcupadas}</td><td>${barraProgreso(r.tasaOcupacion)}</td></tr>`
           )
         )}
       </div>
 
-      <!-- RF-36 -->
       <div class="dashboard-section">
-        <h3>RF-36 · Prácticas planeadas vs ejecutadas</h3>
+        <h3>Prácticas planeadas vs ejecutadas</h3>
         <div class="kpi-grid">
-          <div class="stat-card"><div class="label">Total</div><div class="value">${d.rf36_practicas?.resumen?.total || 0}</div></div>
-          <div class="stat-card"><div class="label">Ejecutadas</div><div class="value" style="color:var(--success)">${d.rf36_practicas?.resumen?.ejecutadas || 0}</div></div>
-          <div class="stat-card"><div class="label">Cumplimiento</div><div class="value">${d.rf36_practicas?.resumen?.porcentajeCumplimiento || 0}%</div></div>
+          <div class="stat-card"><div class="label">Total</div><div class="value">${d.practicas?.resumen?.total || 0}</div></div>
+          <div class="stat-card"><div class="label">Ejecutadas</div><div class="value" style="color:var(--success)">${d.practicas?.resumen?.ejecutadas || 0}</div></div>
+          <div class="stat-card"><div class="label">Cumplimiento</div><div class="value">${d.practicas?.resumen?.porcentajeCumplimiento || 0}%</div></div>
         </div>
         <div class="responsive-grid">
-          <div>${tablaHTML(['Asignatura', 'Plan.', 'Ejec.', '%'], (d.rf36_practicas?.porAsignatura || []).map((a) =>
+          <div>${tablaHTML(['Asignatura', 'Plan.', 'Ejec.', '%'], (d.practicas?.porAsignatura || []).map((a) =>
             `<tr><td>${a.etiqueta}</td><td>${a.planeadas}</td><td>${a.ejecutadas}</td><td>${a.porcentaje}%</td></tr>`))}</div>
-          <div>${tablaHTML(['Docente', 'Plan.', 'Ejec.', '%'], (d.rf36_practicas?.porDocente || []).map((doc) =>
+          <div>${tablaHTML(['Docente', 'Plan.', 'Ejec.', '%'], (d.practicas?.porDocente || []).map((doc) =>
             `<tr><td>${doc.etiqueta}</td><td>${doc.planeadas}</td><td>${doc.ejecutadas}</td><td>${doc.porcentaje}%</td></tr>`))}</div>
         </div>
       </div>
 
-      <!-- RF-37 -->
       <div class="dashboard-section">
-        <h3>RF-37 · Ausentismo estudiantil</h3>
+        <h3>Ausentismo estudiantil</h3>
         <div class="stat-card" style="margin-bottom:1rem;display:inline-block">
           <div class="label">Promedio ausentismo</div>
-          <div class="value">${d.rf37_ausentismo?.resumen?.promedioAusentismo || 0}%</div>
+          <div class="value">${d.ausentismo?.resumen?.promedioAusentismo || 0}%</div>
         </div>
         <div class="responsive-grid">
-          <div>${tablaHTML(['Asignatura', 'Sesiones', 'Ausentismo %'], (d.rf37_ausentismo?.porAsignatura || []).map((a) =>
+          <div>${tablaHTML(['Asignatura', 'Sesiones', 'Ausentismo %'], (d.ausentismo?.porAsignatura || []).map((a) =>
             `<tr><td>${a.etiqueta}</td><td>${a.sesiones}</td><td>${a.porcentajeAusentismo}%</td></tr>`))}</div>
-          <div>${tablaHTML(['Laboratorio', 'Sesiones', 'Ausentismo %'], (d.rf37_ausentismo?.porLaboratorio || []).map((l) =>
+          <div>${tablaHTML(['Laboratorio', 'Sesiones', 'Ausentismo %'], (d.ausentismo?.porLaboratorio || []).map((l) =>
             `<tr><td>${l.etiqueta}</td><td>${l.sesiones}</td><td>${l.porcentajeAusentismo}%</td></tr>`))}</div>
         </div>
       </div>
 
-      <!-- RF-38 -->
       <div class="dashboard-section">
-        <h3>RF-38 · Alertas de equipos críticos (${d.rf38_inventarioCritico?.total || 0})</h3>
-        ${(d.rf38_inventarioCritico?.alertas || []).length
-          ? (d.rf38_inventarioCritico.alertas.map((a) =>
+        <h3>Alertas de equipos críticos (${d.inventarioCritico?.total || 0})</h3>
+        ${(d.inventarioCritico?.alertas || []).length
+          ? (d.inventarioCritico.alertas.map((a) =>
               `<div class="alert-item ${a.criticidad === 'media' ? 'media' : ''}"><strong>${a.nombre}</strong> — ${a.laboratorio || ''}<br>${a.motivo} ${UI.badgeEstado(a.estado)}</div>`
             ).join(''))
           : '<p style="color:var(--muted)">No hay alertas críticas</p>'}
       </div>
 
-      <!-- RF-39 -->
       <div class="dashboard-section">
-        <h3>RF-39 · Laboratorios subutilizados (umbral ${d.rf39_subutilizados?.umbral || 30}%)</h3>
-        ${tablaHTML(['Laboratorio', 'Ocupación %', 'Déficit'], (d.rf39_subutilizados?.laboratorios || []).map((l) =>
+        <h3>Laboratorios subutilizados (umbral ${d.subutilizados?.umbral || 30}%)</h3>
+        ${tablaHTML(['Laboratorio', 'Ocupación %', 'Déficit'], (d.subutilizados?.laboratorios || []).map((l) =>
           `<tr><td>${l.laboratorio}</td><td>${l.tasaOcupacion}%</td><td>${UI.badgeEstado('pendiente').replace('pendiente', l.alerta)} ${l.diferencia}% bajo umbral</td></tr>`
         ))}
       </div>
 
-      <!-- RF-40 -->
       <div class="dashboard-section">
-        <h3>RF-40 · Patrones de cancelación de reservas</h3>
-        <p style="font-size:0.875rem;color:var(--muted);margin-bottom:0.75rem">Total cancelaciones: ${d.rf40_patronesCancelacion?.totalCancelaciones || 0}</p>
+        <h3>Patrones de cancelación de reservas</h3>
+        <p style="font-size:0.875rem;color:var(--muted);margin-bottom:0.75rem">Total cancelaciones: ${d.patronesCancelacion?.totalCancelaciones || 0}</p>
         <div class="responsive-grid responsive-grid-3">
-          <div>${tablaHTML(['Docente', 'Cancel.'], (d.rf40_patronesCancelacion?.porDocente || []).slice(0, 5).map((p) =>
+          <div>${tablaHTML(['Docente', 'Cancel.'], (d.patronesCancelacion?.porDocente || []).slice(0, 5).map((p) =>
             `<tr><td>${p.etiqueta}</td><td>${p.cancelaciones}</td></tr>`))}</div>
-          <div>${tablaHTML(['Laboratorio', 'Cancel.'], (d.rf40_patronesCancelacion?.porLaboratorio || []).slice(0, 5).map((p) =>
+          <div>${tablaHTML(['Laboratorio', 'Cancel.'], (d.patronesCancelacion?.porLaboratorio || []).slice(0, 5).map((p) =>
             `<tr><td>${p.etiqueta}</td><td>${p.cancelaciones}</td></tr>`))}</div>
-          <div>${tablaHTML(['Asignatura', 'Cancel.'], (d.rf40_patronesCancelacion?.porAsignatura || []).slice(0, 5).map((p) =>
+          <div>${tablaHTML(['Asignatura', 'Cancel.'], (d.patronesCancelacion?.porAsignatura || []).slice(0, 5).map((p) =>
             `<tr><td>${p.etiqueta}</td><td>${p.cancelaciones}</td></tr>`))}</div>
         </div>
-        ${(d.rf40_patronesCancelacion?.patronesRecurrentes || []).length ? `
+        ${(d.patronesCancelacion?.patronesRecurrentes || []).length ? `
           <p style="margin-top:1rem;font-weight:600;color:var(--danger)">Patrones recurrentes (≥2 cancelaciones):</p>
-          <ul style="font-size:0.875rem;padding-left:1.25rem">${d.rf40_patronesCancelacion.patronesRecurrentes.map((p) =>
+          <ul style="font-size:0.875rem;padding-left:1.25rem">${d.patronesCancelacion.patronesRecurrentes.map((p) =>
             `<li>${p.etiqueta}: ${p.cancelaciones} cancelaciones</li>`).join('')}</ul>` : ''}
       </div>
 
-      <!-- RF-41 -->
       <div class="dashboard-section">
-        <h3>RF-41 · Equipos con más incidencias</h3>
-        ${tablaHTML(['Equipo', 'Laboratorio', 'Estado', 'Incidencias', 'Prioridad'], (d.rf41_equiposIncidencias?.equipos || []).map((e) =>
+        <h3>Equipos con más incidencias</h3>
+        ${tablaHTML(['Equipo', 'Laboratorio', 'Estado', 'Incidencias', 'Prioridad'], (d.equiposIncidencias?.equipos || []).map((e) =>
           `<tr><td>${e.nombre || '—'}</td><td>${e.laboratorio || '—'}</td><td>${UI.badgeEstado(e.estado)}</td><td><strong>${e.totalIncidencias}</strong></td><td>${UI.badgeEstado(e.prioridad === 'alta' ? 'rechazada' : 'pendiente').replace(e.prioridad === 'alta' ? 'rechazada' : 'pendiente', e.prioridad)}</td></tr>`
         ))}
       </div>
 
-      <!-- RF-42 -->
       <div class="dashboard-section">
-        <h3>RF-42 · Comparativo por carrera/grupo y asignatura</h3>
+        <h3>Comparativo por carrera/grupo y asignatura</h3>
         <div class="responsive-grid">
-          <div>${tablaHTML(['Asignatura', 'Plan.', 'Ejec.', 'Cumpl. %'], (d.rf42_comparativo?.porAsignatura || []).map((a) =>
+          <div>${tablaHTML(['Asignatura', 'Plan.', 'Ejec.', 'Cumpl. %'], (d.comparativo?.porAsignatura || []).map((a) =>
             `<tr><td>${a.asignatura}</td><td>${a.planeadas}</td><td>${a.ejecutadas}</td><td>${a.cumplimiento}%</td></tr>`))}</div>
-          <div>${tablaHTML(['Carrera/Grupo', 'Reservas', 'Asignaturas'], (d.rf42_comparativo?.porCarreraGrupo || []).map((g) =>
+          <div>${tablaHTML(['Carrera/Grupo', 'Reservas', 'Asignaturas'], (d.comparativo?.porCarreraGrupo || []).map((g) =>
             `<tr><td>${g.carrera_grupo}</td><td>${g.reservas}</td><td>${(g.asignaturas || []).join(', ')}</td></tr>`))}</div>
         </div>
       </div>
 
-      <!-- RF-43 -->
       <div class="dashboard-section">
-        <h3>RF-43 · Indicadores individuales por docente</h3>
+        <h3>Indicadores individuales por docente</h3>
         ${tablaHTML(
           ['Docente', 'Prác. ejecutadas', 'Cumplimiento %', 'Asistencia prom.', 'Incidencias', 'Sesiones'],
-          (d.rf43_indicadoresDocente?.indicadores || []).map((doc) =>
+          (d.indicadoresDocente?.indicadores || []).map((doc) =>
             `<tr><td><strong>${doc.docente}</strong></td><td>${doc.practicasEjecutadas}</td><td>${doc.cumplimientoPracticas}%</td><td>${doc.tasaAsistenciaPromedio}%</td><td>${doc.incidenciasReportadas}</td><td>${doc.sesionesImpartidas}</td></tr>`
           )
         )}
@@ -1587,7 +1692,7 @@ async function repararRecurso(id) {
   }
 }
 
-// ─── RF-26 / RF-27: Prácticas académicas ─────────────────────
+// ─── Prácticas académicas ─────────────────────
 function barraProgreso(porcentaje) {
   const color = porcentaje >= 75 ? 'var(--success)' : porcentaje >= 50 ? 'var(--warning)' : 'var(--danger)';
   return `<div style="background:var(--border);border-radius:999px;height:8px;width:120px;display:inline-block;vertical-align:middle">
@@ -1716,7 +1821,7 @@ async function cargarSeguimientoPracticas() {
     document.getElementById('practicasComparacion').innerHTML = `
       <div class="responsive-grid" style="margin-bottom:1.5rem">
         <div>
-          <h3 style="font-size:0.9375rem;margin-bottom:0.75rem;color:var(--primary)">Por asignatura (RF-27)</h3>
+          <h3 style="font-size:0.9375rem;margin-bottom:0.75rem;color:var(--primary)">Por asignatura</h3>
           ${comparacion.porAsignatura.length ? `
           <div class="table-scroll"><table><thead><tr><th>Asignatura</th><th>Plan.</th><th>Ejec.</th><th>Cumplimiento</th></tr></thead>
           <tbody>${comparacion.porAsignatura.map((a) => `
@@ -1729,7 +1834,7 @@ async function cargarSeguimientoPracticas() {
           </tbody></table></div>` : '<p style="color:var(--muted);font-size:0.875rem">Sin datos</p>'}
         </div>
         <div>
-          <h3 style="font-size:0.9375rem;margin-bottom:0.75rem;color:var(--primary)">Por docente (RF-27)</h3>
+          <h3 style="font-size:0.9375rem;margin-bottom:0.75rem;color:var(--primary)">Por docente</h3>
           ${comparacion.porDocente.length ? `
           <div class="table-scroll"><table><thead><tr><th>Docente</th><th>Plan.</th><th>Ejec.</th><th>Cumplimiento</th></tr></thead>
           <tbody>${comparacion.porDocente.map((d) => `
@@ -1840,7 +1945,7 @@ async function ejecutarPractica(id) {
   });
 }
 
-// ─── RF-08 / RF-09 / RF-10: Consultas portal web ─────────────
+// ─── Consultas portal web ─────────────
 async function renderConsultas() {
   const puedeIncidencias = Auth.tienePermiso('consultas.incidenciasHistorial');
   const puedeAgenda = Auth.tienePermiso('consultas.agenda');
@@ -1849,9 +1954,9 @@ async function renderConsultas() {
   document.getElementById('contentArea').innerHTML = `
     <div id="consultasAlert"></div>
     <div class="tabs-bar">
-      ${puedeIncidencias ? '<button class="tab-btn active" data-tab="incidencias">RF-08 · Incidencias</button>' : ''}
-      ${puedeAgenda ? `<button class="tab-btn ${!puedeIncidencias ? 'active' : ''}" data-tab="agenda">RF-09 · Agenda</button>` : ''}
-      ${puedeDisponibilidad ? '<button class="tab-btn" data-tab="disponibilidad">RF-10 · Disponibilidad</button>' : ''}
+      ${puedeIncidencias ? '<button class="tab-btn active" data-tab="incidencias">Incidencias</button>' : ''}
+      ${puedeAgenda ? `<button class="tab-btn ${!puedeIncidencias ? 'active' : ''}" data-tab="agenda">Agenda</button>` : ''}
+      ${puedeDisponibilidad ? '<button class="tab-btn" data-tab="disponibilidad">Disponibilidad</button>' : ''}
     </div>
     <div id="consultasTabContent"></div>`;
 
@@ -1991,7 +2096,7 @@ async function cargarTabConsultas(tab) {
   }
 }
 
-// ─── RF-44: Gobernanza de datos ──────────────────────────────
+// ─── Gobernanza de datos ──────────────────────────────
 function renderGobernanza() {
   document.getElementById('contentArea').innerHTML = `
     <div class="card">
@@ -2021,7 +2126,7 @@ function renderGobernanza() {
 
         <h4>4. Política de anonimización</h4>
         <ul>
-          <li>Los dashboards analíticos (RF-35 a RF-43) presentan datos agregados sin identificar estudiantes individualmente.</li>
+          <li>Los dashboards analíticos presentan datos agregados sin identificar estudiantes individualmente.</li>
           <li>Los reportes de ausentismo muestran porcentajes por sesión/asignatura, no nombres de estudiantes.</li>
           <li>Para investigación o publicación de indicadores, se aplicará anonimización irreversible (eliminación de identificadores directos e indirectos).</li>
           <li>El acceso a datos identificables está restringido por rol (RBAC) según el principio de mínimo privilegio.</li>
@@ -2061,7 +2166,7 @@ function renderGobernanza() {
         <p>Esta política se revisará anualmente o ante cambios normativos. Los usuarios serán notificados de modificaciones sustanciales al iniciar sesión en el portal.</p>
 
         <div class="alert alert-success" style="margin-top:1.5rem">
-          Documento alineado con RF-44 — Gobernanza de Datos del Proyecto GILIH.
+          Documento de Gobernanza de Datos del Proyecto GILIH.
         </div>
       </div>
     </div>`;

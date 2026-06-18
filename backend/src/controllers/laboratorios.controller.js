@@ -108,7 +108,6 @@ const disponibilidad = asyncHandler(async (req, res) => {
   });
 
   res.json({
-    rf: 'RF-10',
     fecha,
     hora_inicio,
     hora_fin,

@@ -60,10 +60,7 @@
 
         <button type="submit" class="btn btn-auth btn-auth-primary" id="btnLogin">Iniciar sesión</button>
       </form>
-
-      <div class="auth-divider">o</div>
-
-      <button type="button" class="btn btn-auth btn-auth-outline" id="btnRegister">Registrarse</button>
+      <!-- Botón de registro eliminado -->
     </div>
 
     <div class="auth-footer">GILIH v1.0 · CUE &copy; 2026</div>
@@ -104,9 +101,7 @@
       mostrarAlerta('Para restablecer tu contraseña, contacta al administrador del sistema.', 'info');
     });
 
-    document.getElementById('btnRegister').addEventListener('click', () => {
-      mostrarAlerta('Las cuentas son creadas por el administrador. Solicita tu acceso institucional.', 'info');
-    });
+    // Eliminada la lógica del botón de registro
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();

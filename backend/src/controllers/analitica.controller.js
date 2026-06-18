@@ -30,7 +30,7 @@ const validarPeriodo = (fecha_inicio, fecha_fin, res) => {
   return true;
 };
 
-// RF-35: Ocupación por laboratorio vs disponibilidad total
+// Ocupación por laboratorio vs disponibilidad total
 const ocupacion = asyncHandler(async (req, res) => {
   const { fecha_inicio, fecha_fin } = req.query;
   if (!validarPeriodo(fecha_inicio, fecha_fin, res)) return;
@@ -78,10 +78,10 @@ const ocupacion = asyncHandler(async (req, res) => {
     });
   }
 
-  res.json({ rf: 'RF-35', periodo: { fecha_inicio, fecha_fin }, horasDisponibles, resultados });
+  res.json({ periodo: { fecha_inicio, fecha_fin }, horasDisponibles, resultados });
 });
 
-// RF-36: Prácticas planeadas vs ejecutadas
+// Prácticas planeadas vs ejecutadas
 const cumplimientoPracticas = asyncHandler(async (req, res) => {
   const { periodo, asignatura, docente_id } = req.query;
   const where = {};
@@ -105,7 +105,6 @@ const cumplimientoPracticas = asyncHandler(async (req, res) => {
   const porPeriodo = agruparPracticas(practicas, 'periodo', (p) => p.periodo);
 
   res.json({
-    rf: 'RF-36',
     periodo: periodo || 'todos',
     resumen,
     porAsignatura: porAsignatura.map((g) => ({
@@ -132,7 +131,7 @@ const cumplimientoPracticas = asyncHandler(async (req, res) => {
   });
 });
 
-// RF-37: Ausentismo por sesión, asignatura y laboratorio
+// Ausentismo por sesión, asignatura y laboratorio
 const ausentismo = asyncHandler(async (req, res) => {
   const { fecha_inicio, fecha_fin, capacidad_esperada } = req.query;
   if (!validarPeriodo(fecha_inicio, fecha_fin, res)) return;
@@ -195,7 +194,6 @@ const ausentismo = asyncHandler(async (req, res) => {
   };
 
   res.json({
-    rf: 'RF-37',
     periodo: { fecha_inicio, fecha_fin },
     resumen: {
       sesionesAnalizadas: porSesion.length,
@@ -209,7 +207,7 @@ const ausentismo = asyncHandler(async (req, res) => {
   });
 });
 
-// RF-38: Alertas equipos críticos
+// Alertas equipos críticos
 const inventarioCritico = asyncHandler(async (req, res) => {
   const equipos = await Equipo.findAll({
     include: [{ model: Laboratorio, as: 'laboratorio' }],
@@ -257,7 +255,6 @@ const inventarioCritico = asyncHandler(async (req, res) => {
     });
 
   res.json({
-    rf: 'RF-38',
     total: alertas.length,
     porCriticidad: {
       alta: alertas.filter((a) => a.criticidad === 'alta').length,
@@ -267,7 +264,7 @@ const inventarioCritico = asyncHandler(async (req, res) => {
   });
 });
 
-// RF-39: Laboratorios subutilizados
+// Laboratorios subutilizados
 const subutilizados = asyncHandler(async (req, res) => {
   const { fecha_inicio, fecha_fin, umbral } = req.query;
   if (!validarPeriodo(fecha_inicio, fecha_fin, res)) return;
@@ -299,10 +296,10 @@ const subutilizados = asyncHandler(async (req, res) => {
     }
   }
 
-  res.json({ rf: 'RF-39', umbral: umbralPct, periodo: { fecha_inicio, fecha_fin }, total: resultados.length, laboratorios: resultados });
+  res.json({ umbral: umbralPct, periodo: { fecha_inicio, fecha_fin }, total: resultados.length, laboratorios: resultados });
 });
 
-// RF-40: Patrones de cancelación de reservas
+// Patrones de cancelación de reservas
 const patronesCancelacion = asyncHandler(async (req, res) => {
   const { fecha_inicio, fecha_fin } = req.query;
   const where = { estado: ESTADOS.RESERVA.CANCELADA };
@@ -327,7 +324,6 @@ const patronesCancelacion = asyncHandler(async (req, res) => {
   };
 
   res.json({
-    rf: 'RF-40',
     totalCancelaciones: canceladas.length,
     porDocente: agrupar(canceladas, (r) => r.docente_id, (r) => r.docente?.nombre),
     porLaboratorio: agrupar(canceladas, (r) => r.laboratorio_id, (r) => r.laboratorio?.nombre),
@@ -336,7 +332,7 @@ const patronesCancelacion = asyncHandler(async (req, res) => {
   });
 });
 
-// RF-41: Equipos con más incidencias
+// Equipos con más incidencias
 const equiposIncidencias = asyncHandler(async (req, res) => {
   const { limite } = req.query;
   const top = parseInt(limite, 10) || 10;
@@ -367,10 +363,10 @@ const equiposIncidencias = asyncHandler(async (req, res) => {
     })
   );
 
-  res.json({ rf: 'RF-41', equipos });
+  res.json({ equipos });
 });
 
-// RF-42: Comparativo ocupación y cumplimiento por carrera/asignatura
+// Comparativo ocupación y cumplimiento por carrera/asignatura
 const comparativoCarreras = asyncHandler(async (req, res) => {
   const { fecha_inicio, fecha_fin, periodo } = req.query;
 
@@ -401,7 +397,6 @@ const comparativoCarreras = asyncHandler(async (req, res) => {
   });
 
   res.json({
-    rf: 'RF-42',
     porAsignatura: Object.values(porAsignatura).map((a) => ({
       ...a,
       cumplimiento: calcularPorcentaje(a.ejecutadas, a.planeadas + a.ejecutadas),
@@ -414,7 +409,7 @@ const comparativoCarreras = asyncHandler(async (req, res) => {
   });
 });
 
-// RF-43: Indicadores individuales por docente
+// Indicadores individuales por docente
 const indicadoresDocente = asyncHandler(async (req, res) => {
   const { periodo, fecha_inicio, fecha_fin } = req.query;
 
@@ -462,7 +457,7 @@ const indicadoresDocente = asyncHandler(async (req, res) => {
     });
   }
 
-  res.json({ rf: 'RF-43', total: indicadores.length, indicadores });
+  res.json({ total: indicadores.length, indicadores });
 });
 
 // Dashboard consolidado
@@ -514,15 +509,15 @@ const dashboard = asyncHandler(async (req, res) => {
 
   res.json({
     periodo: { fecha_inicio: inicio, fecha_fin: fin, periodo_academico: periodo || null },
-    rf35_ocupacion: ocupacionData,
-    rf36_practicas: practicasData,
-    rf37_ausentismo: ausentismoData,
-    rf38_inventarioCritico: inventarioData,
-    rf39_subutilizados: subutilizadosData,
-    rf40_patronesCancelacion: cancelacionData,
-    rf41_equiposIncidencias: equiposData,
-    rf42_comparativo: comparativoData,
-    rf43_indicadoresDocente: docentesData,
+    ocupacion: ocupacionData,
+    practicas: practicasData,
+    ausentismo: ausentismoData,
+    inventarioCritico: inventarioData,
+    subutilizados: subutilizadosData,
+    patronesCancelacion: cancelacionData,
+    equiposIncidencias: equiposData,
+    comparativo: comparativoData,
+    indicadoresDocente: docentesData,
   });
 });
 

@@ -3,7 +3,7 @@ const { Incidencia, Equipo, Usuario, Sesion, Laboratorio, Reserva } = require('.
 const asyncHandler = require('../utils/asyncHandler');
 const { ESTADOS } = require('../config/estados');
 
-// RF-08: Historial de incidencias por laboratorio
+// Historial de incidencias por laboratorio
 const historialIncidencias = asyncHandler(async (req, res) => {
   const { laboratorio_id, fecha_inicio, fecha_fin } = req.query;
 
@@ -31,14 +31,13 @@ const historialIncidencias = asyncHandler(async (req, res) => {
   });
 
   res.json({
-    rf: 'RF-08',
     laboratorio: { id: laboratorio.id, nombre: laboratorio.nombre },
     total: incidencias.length,
     incidencias,
   });
 });
 
-// RF-09: Agenda y sesiones programadas por laboratorio según rol
+// Agenda y sesiones programadas por laboratorio según rol
 const agenda = asyncHandler(async (req, res) => {
   const { laboratorio_id, fecha_inicio, fecha_fin } = req.query;
   const rol = req.usuario.rol;
@@ -112,7 +111,6 @@ const agenda = asyncHandler(async (req, res) => {
   ].sort((a, b) => `${a.fecha}${a.hora_inicio}`.localeCompare(`${b.fecha}${b.hora_inicio}`));
 
   res.json({
-    rf: 'RF-09',
     rol,
     filtros: { laboratorio_id, fecha_inicio, fecha_fin },
     resumen: { reservas: reservas.length, sesiones: sesiones.length, eventos: eventos.length },

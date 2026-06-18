@@ -1,5 +1,8 @@
 const API_BASE = 'http://localhost:3000/api';
 
+/** Informe Power BI (GILIH) — abrir en pestaña o capturar ventana en vivo */
+const POWER_BI_REPORT_URL = 'https://app.powerbi.com/groups/me/reports/e54484ec-eda3-482e-b978-e6e91a5eb987/75042b8182685cd0d0db?experience=power-bi';
+
 // Iconos SVG inline (heredan color con currentColor)
 const ICONOS = {
   dashboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',
